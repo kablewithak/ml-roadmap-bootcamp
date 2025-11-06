@@ -1,2 +1,2 @@
 # ml-roadmap-bootcamp
-thi si smy machin learning roadmap I am following, it's going to change lives
+This is my machine learning roadmap I am folloiwng, it's going to change lives
