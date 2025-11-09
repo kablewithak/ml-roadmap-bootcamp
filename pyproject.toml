@@ -1,0 +1,94 @@
+[tool.poetry]
+name = "payment-system"
+version = "1.0.0"
+description = "Production-grade multi-currency payment system with event sourcing, chaos engineering, and ML optimization"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+# Core framework
+fastapi = "^0.104.0"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+pydantic = "^2.4.0"
+pydantic-settings = "^2.0.3"
+
+# Event sourcing & messaging
+kafka-python = "^2.0.2"  # Production event bus
+redis = "^5.0.0"  # Idempotency keys, caching
+sqlalchemy = "^2.0.0"  # Event store persistence
+alembic = "^1.12.0"  # Schema migrations
+psycopg2-binary = "^2.9.9"  # PostgreSQL driver
+
+# Payment rails
+stripe = "^7.0.0"  # Credit card processing
+# Note: ACH and wire would use bank-specific SDKs (Plaid, Column, etc.)
+
+# HTTP & external APIs
+httpx = "^0.25.0"  # Async HTTP client for FX rates
+aiohttp = "^3.9.0"  # Alternative async client
+tenacity = "^8.2.0"  # Retry logic with exponential backoff
+
+# Data & ML
+numpy = "^1.26.0"
+pandas = "^2.1.0"
+scikit-learn = "^1.3.0"  # FX optimization ML
+xgboost = "^2.0.0"  # Chargeback prediction
+
+# Observability
+prometheus-client = "^0.19.0"  # Metrics
+structlog = "^23.2.0"  # Structured logging
+opentelemetry-api = "^1.21.0"  # Distributed tracing
+opentelemetry-sdk = "^1.21.0"
+opentelemetry-instrumentation-fastapi = "^0.42b0"
+
+# Testing & chaos engineering
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+hypothesis = "^6.92.0"  # Property-based testing
+faker = "^20.0.0"  # Test data generation
+locust = "^2.17.0"  # Load testing
+
+# Security
+cryptography = "^41.0.0"  # Encryption for PII
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}  # JWT
+
+# Utilities
+python-dotenv = "^1.0.0"
+arrow = "^1.3.0"  # Better datetime handling
+pycountry = "^23.12.0"  # Currency/country codes
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.11.0"
+ruff = "^0.1.5"
+mypy = "^1.7.0"
+ipython = "^8.17.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "N", "UP", "S", "B", "A", "C4", "DTZ", "T10", "EM", "ISC", "ICN", "PIE", "PT", "Q", "RET", "SIM", "TID", "ARG", "ERA", "PD", "PGH", "PLC", "PLE", "PLR", "PLW", "RUF"]
+ignore = ["S101", "PLR0913"]  # Allow assert in tests, many arguments for domain models
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --cov=payment_system --cov-report=html --cov-report=term-missing"
