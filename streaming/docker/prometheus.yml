@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'streaming-infrastructure'
+    environment: 'development'
+
+scrape_configs:
+  # Redpanda metrics
+  - job_name: 'redpanda'
+    static_configs:
+      - targets:
+          - 'redpanda-1:9644'
+          - 'redpanda-2:9644'
+          - 'redpanda-3:9644'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'redpanda_.*'
+        action: keep
+
+  # Custom application metrics (pushed via Pushgateway or exposed endpoints)
+  - job_name: 'streaming-app'
+    static_configs:
+      - targets: ['host.docker.internal:8000']  # Your app metrics endpoint
+    scrape_interval: 5s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
