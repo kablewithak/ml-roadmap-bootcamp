@@ -1,0 +1,368 @@
+version: '3.8'
+
+# ============================================================================
+# PRODUCTION-GRADE LOAD TESTING INFRASTRUCTURE
+# ============================================================================
+#
+# PURPOSE:
+# --------
+# Complete testing environment with:
+# - Systems under test (Payment API, Kafka, databases)
+# - Load generation (Locust master + workers)
+# - Monitoring (Prometheus, Grafana)
+# - Chaos engineering capabilities
+#
+# COST OPTIMIZATION:
+# ------------------
+# Local development: $0/month (runs on laptop)
+# Single VPS (4 vCPUs, 8GB RAM): ~$40/month
+# - DigitalOcean: $40/month
+# - Linode: $36/month
+# - AWS t3.xlarge: $120/month (overkill, not recommended)
+#
+# PERFORMANCE TARGETS:
+# --------------------
+# This stack can simulate:
+# - 1000 TPS payment load (single Locust worker)
+# - 5000 TPS with 5 workers (requires 8GB+ RAM)
+# - 10000+ TPS Kafka throughput
+#
+# ARCHITECTURE:
+# -------------
+#  ┌─────────────────────────────────────┐
+#  │   LOAD GENERATORS (Locust)          │
+#  │  ┌────────┐  ┌────────┐  ┌────────┐│
+#  │  │Master  │  │Worker 1│  │Worker 2││
+#  │  └───┬────┘  └───┬────┘  └───┬────┘│
+#  └──────┼───────────┼───────────┼─────┘
+#         │           │           │
+#  ┌──────┼───────────┼───────────┼─────┐
+#  │      ▼           ▼           ▼     │
+#  │   SYSTEMS UNDER TEST                │
+#  │  ┌────────┐  ┌────────┐  ┌────────┐│
+#  │  │FastAPI │  │Redpanda│  │Postgres││
+#  │  └───┬────┘  └───┬────┘  └───┬────┘│
+#  └──────┼───────────┼───────────┼─────┘
+#         │           │           │
+#  ┌──────┼───────────┼───────────┼─────┐
+#  │      ▼           ▼           ▼     │
+#  │   MONITORING STACK                  │
+#  │  ┌─────────┐  ┌────────┐           │
+#  │  │Prometheus│  │Grafana │           │
+#  │  └─────────┘  └────────┘           │
+#  └─────────────────────────────────────┘
+#
+# USAGE:
+# ------
+# 1. Start all services:
+#    docker-compose up -d
+#
+# 2. Check status:
+#    docker-compose ps
+#
+# 3. Run load test:
+#    docker-compose run locust_master --host http://payment_api:8000
+#
+# 4. View Locust UI:
+#    http://localhost:8089
+#
+# 5. View Grafana:
+#    http://localhost:3000 (admin/admin)
+#
+# 6. Cleanup:
+#    docker-compose down -v
+#
+# ============================================================================
+
+services:
+  # ==========================================================================
+  # INFRASTRUCTURE SERVICES
+  # ==========================================================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: load_test_postgres
+    environment:
+      POSTGRES_DB: payments_db
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_password_dev_only  # CHANGE IN PRODUCTION!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payments_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - load_test_network
+    # CRITICAL: Enable for chaos engineering
+    cap_add:
+      - SYS_ADMIN  # Allows killing processes for chaos testing
+
+  redis:
+    image: redis:7-alpine
+    container_name: load_test_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - load_test_network
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: load_test_redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+    ports:
+      - "18081:18081"  # Schema registry
+      - "18082:18082"  # Pandaproxy
+      - "19092:19092"  # Kafka
+      - "9644:9644"    # Admin API
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - load_test_network
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redpanda Console (Kafka UI)
+  redpanda_console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: load_test_redpanda_console
+    depends_on:
+      - redpanda
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+    networks:
+      - load_test_network
+
+  # ==========================================================================
+  # PAYMENT API (System Under Test)
+  # ==========================================================================
+
+  payment_api:
+    build:
+      context: ../../payment-system  # Adjust path to your payment system
+      dockerfile: Dockerfile
+    container_name: load_test_payment_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql://payment_user:payment_password_dev_only@postgres:5432/payments_db
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      # Stripe (use test keys)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      # Monitoring
+      PROMETHEUS_METRICS_PORT: 8000
+    ports:
+      - "8000:8000"  # API
+      - "8001:8001"  # Metrics
+    networks:
+      - load_test_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # CRITICAL: Enable for chaos engineering (network latency injection)
+    cap_add:
+      - NET_ADMIN
+
+  # ==========================================================================
+  # LOAD GENERATION (Locust)
+  # ==========================================================================
+
+  locust_master:
+    image: locustio/locust:latest
+    container_name: load_test_locust_master
+    ports:
+      - "8089:8089"  # Locust web UI
+    volumes:
+      - ../tests:/locust
+      - ../core:/locust/core
+    command: >
+      --master
+      --locustfile /locust/payment_load_test.py
+      --host http://payment_api:8000
+      --web-host 0.0.0.0
+      --web-port 8089
+    environment:
+      PYTHONPATH: /locust
+    networks:
+      - load_test_network
+    depends_on:
+      - payment_api
+
+  # Locust Worker 1
+  locust_worker_1:
+    image: locustio/locust:latest
+    container_name: load_test_locust_worker_1
+    volumes:
+      - ../tests:/locust
+      - ../core:/locust/core
+    command: >
+      --worker
+      --master-host locust_master
+      --master-port 5557
+      --locustfile /locust/payment_load_test.py
+    environment:
+      PYTHONPATH: /locust
+    networks:
+      - load_test_network
+    depends_on:
+      - locust_master
+
+  # Locust Worker 2 (scale for higher TPS)
+  locust_worker_2:
+    image: locustio/locust:latest
+    container_name: load_test_locust_worker_2
+    volumes:
+      - ../tests:/locust
+      - ../core:/locust/core
+    command: >
+      --worker
+      --master-host locust_master
+      --master-port 5557
+      --locustfile /locust/payment_load_test.py
+    environment:
+      PYTHONPATH: /locust
+    networks:
+      - load_test_network
+    depends_on:
+      - locust_master
+
+  # ==========================================================================
+  # MONITORING STACK
+  # ==========================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: load_test_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - load_test_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: load_test_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin  # CHANGE IN PRODUCTION!
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - load_test_network
+
+# ==========================================================================
+# VOLUMES (Data Persistence)
+# ==========================================================================
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  redpanda_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ==========================================================================
+# NETWORKS (Service Communication)
+# ==========================================================================
+
+networks:
+  load_test_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ==========================================================================
+# SCALING INSTRUCTIONS
+# ==========================================================================
+#
+# To add more Locust workers (for >1000 TPS):
+#   docker-compose up -d --scale locust_worker=5
+#
+# To allocate more resources:
+#   1. Edit service definitions above
+#   2. Add deploy.resources sections:
+#
+#   deploy:
+#     resources:
+#       limits:
+#         cpus: '2.0'
+#         memory: 4G
+#       reservations:
+#         cpus: '1.0'
+#         memory: 2G
+#
+# COST OPTIMIZATION TIPS:
+# -----------------------
+# 1. Use alpine images where possible (smaller, faster)
+# 2. Set resource limits to prevent one service from hogging resources
+# 3. Use volumes for data (persists across restarts)
+# 4. Run only what you need:
+#      docker-compose up postgres redis payment_api locust_master
+# ==========================================================================

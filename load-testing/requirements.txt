@@ -1,0 +1,87 @@
+# Load Testing & Chaos Engineering Framework Dependencies
+# Python 3.11+
+
+# Core Dependencies
+locust==2.17.0              # Load testing framework
+docker==7.0.0               # Chaos engineering (container control)
+redis==5.0.1                # Ground truth ledger storage
+psycopg2-binary==2.9.9      # PostgreSQL reconciliation queries
+httpx==0.25.2               # HTTP client for FastAPI testing
+loguru==0.7.2               # Better logging
+
+# Data & Validation
+pydantic==2.5.0             # Data validation
+pydantic-settings==2.1.0    # Environment configuration
+
+# Monitoring & Metrics
+prometheus-client==0.19.0   # Custom metrics
+python-json-logger==2.0.7   # Structured logging
+
+# Chaos Engineering Tools
+stress-ng==0.16.05          # CPU/memory stress (install via apt/brew)
+
+# Development & Testing
+pytest==7.4.3               # Testing framework
+pytest-asyncio==0.21.1      # Async test support
+pytest-mock==3.12.0         # Mocking
+black==23.12.1              # Code formatting
+ruff==0.1.8                 # Fast linter
+mypy==1.7.1                 # Type checking
+
+# Utilities
+python-dotenv==1.0.0        # Environment variables
+click==8.1.7                # CLI framework
+rich==13.7.0                # Beautiful terminal output
+tabulate==0.9.0             # Table formatting
+
+# Optional: Enhanced Reporting
+matplotlib==3.8.2           # Charts for reports
+jinja2==3.1.2               # HTML template rendering
+
+# Payment System Integration (if testing Stripe)
+stripe==7.8.0               # Stripe API client
+
+# Kafka Integration (if testing Kafka system)
+kafka-python==2.0.2         # Kafka client
+confluent-kafka==2.3.0      # High-performance Kafka client
+
+# ============================================================================
+# INSTALLATION INSTRUCTIONS
+# ============================================================================
+#
+# 1. Create virtual environment:
+#    python3.11 -m venv venv
+#    source venv/bin/activate  # Linux/Mac
+#    venv\Scripts\activate     # Windows
+#
+# 2. Install dependencies:
+#    pip install -r requirements.txt
+#
+# 3. Install system dependencies (for chaos engineering):
+#    # Ubuntu/Debian:
+#    sudo apt-get install stress-ng iproute2
+#
+#    # macOS:
+#    brew install stress-ng
+#
+# 4. Verify installation:
+#    python -c "import locust; print(locust.__version__)"
+#    python -c "import docker; print(docker.version)"
+#
+# ============================================================================
+# COST OPTIMIZATION
+# ============================================================================
+#
+# Running this stack:
+# - Local (laptop): $0/month
+# - Single VPS (4 vCPUs, 8GB): $40-50/month
+#   - DigitalOcean: $40/month
+#   - Linode: $36/month
+#   - Hetzner: €30/month (~$32)
+#
+# Performance:
+# - Single laptop: 100-500 TPS
+# - VPS with 2 workers: 1000 TPS
+# - VPS with 5 workers: 2000-3000 TPS
+#
+# ============================================================================
