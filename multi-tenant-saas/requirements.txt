@@ -1,0 +1,95 @@
+# Multi-Tenant SaaS Platform - Dependencies
+# Production-grade stack for staff-level ML systems
+
+# ============================================================================
+# CORE FRAMEWORK
+# ============================================================================
+fastapi==0.104.1           # High-performance API framework (Stripe uses this)
+uvicorn[standard]==0.24.0  # ASGI server with performance optimizations
+pydantic==2.5.0            # Data validation (type safety > runtime errors)
+
+# ============================================================================
+# DATABASE & ORM
+# ============================================================================
+sqlalchemy==2.0.23         # ORM with full RLS support
+psycopg2-binary==2.9.9     # PostgreSQL driver (binary for easy install)
+alembic==1.12.1            # Database migrations (zero-downtime deployments)
+
+# ============================================================================
+# CACHING & PERFORMANCE
+# ============================================================================
+redis==5.0.1               # Distributed cache for rate limiting
+hiredis==2.2.3             # C parser for Redis (10x faster)
+
+# ============================================================================
+# MONITORING & OBSERVABILITY
+# ============================================================================
+prometheus-client==0.19.0  # Metrics collection (industry standard)
+opentelemetry-api==1.21.0  # Distributed tracing
+opentelemetry-sdk==1.21.0
+structlog==23.2.0          # Structured logging (JSON for easy parsing)
+
+# ============================================================================
+# MACHINE LEARNING
+# ============================================================================
+scikit-learn==1.3.2        # ML algorithms
+numpy==1.26.2              # Numerical computing
+pandas==2.1.3              # Data manipulation
+
+# ML Model Serving
+mlflow==2.9.1              # Model registry and versioning
+boto3==1.33.6              # AWS S3 for model artifacts
+
+# ============================================================================
+# SECURITY
+# ============================================================================
+python-jose[cryptography]==3.3.0  # JWT tokens
+passlib[bcrypt]==1.7.4            # Password hashing
+cryptography==41.0.7              # Encryption utilities
+
+# ============================================================================
+# RATE LIMITING & THROTTLING
+# ============================================================================
+slowapi==0.1.9             # Rate limiting for FastAPI
+
+# ============================================================================
+# ASYNC UTILITIES
+# ============================================================================
+asyncio==3.4.3
+aioredis==2.0.1            # Async Redis client
+httpx==0.25.2              # Async HTTP client
+
+# ============================================================================
+# TESTING
+# ============================================================================
+pytest==7.4.3              # Testing framework
+pytest-asyncio==0.21.1     # Async test support
+pytest-cov==4.1.0          # Code coverage
+faker==20.1.0              # Generate test data
+locust==2.19.1             # Load testing (chaos engineering)
+
+# ============================================================================
+# DEVELOPMENT
+# ============================================================================
+black==23.11.0             # Code formatting
+ruff==0.1.6                # Fast linter
+mypy==1.7.1                # Type checking (catch bugs before runtime)
+
+# ============================================================================
+# DEPLOYMENT
+# ============================================================================
+gunicorn==21.2.0           # Production WSGI server
+python-dotenv==1.0.0       # Environment variable management
+
+# ============================================================================
+# UTILITIES
+# ============================================================================
+python-dateutil==2.8.2     # Date utilities
+pyyaml==6.0.1              # Config file parsing
+tenacity==8.2.3            # Retry logic with exponential backoff
+
+# ============================================================================
+# COST OPTIMIZATION
+# ============================================================================
+# Note: We use managed services (RDS, ElastiCache) in production to avoid
+# operational overhead. These deps are for local development only.
