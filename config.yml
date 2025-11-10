@@ -1,0 +1,75 @@
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  max_connections: 50
+  socket_timeout: 5
+  socket_connect_timeout: 5
+
+kafka:
+  bootstrap_servers: localhost:9092
+  topics:
+    fraud_signals: fraud.signals
+    payment_decisions: fraud.decisions
+    transaction_events: payment.transactions
+  producer:
+    acks: 1
+    compression_type: snappy
+    max_in_flight_requests_per_connection: 5
+    retries: 3
+  consumer:
+    group_id: fraud-detector
+    auto_offset_reset: latest
+    enable_auto_commit: true
+
+database:
+  url: postgresql+asyncpg://payment_user:payment_pass@localhost:5432/payments
+  pool_size: 20
+  max_overflow: 10
+
+stripe:
+  api_key: ${STRIPE_API_KEY}
+  webhook_secret: ${STRIPE_WEBHOOK_SECRET}
+
+fraud_detection:
+  # Velocity thresholds
+  velocity:
+    transaction_count_5min: 5
+    transaction_count_1hr: 20
+    amount_sum_5min: 5000.00  # USD
+    amount_sum_1hr: 20000.00
+
+  # Pattern thresholds
+  patterns:
+    new_card_high_value: 1000.00
+    small_transaction_threshold: 10.00
+    merchant_category_switch_threshold: 3
+
+  # Risk score weights (sum to 1.0)
+  weights:
+    velocity_count: 0.25
+    velocity_amount: 0.20
+    new_card_risk: 0.15
+    merchant_pattern: 0.15
+    time_pattern: 0.10
+    card_testing_pattern: 0.15
+
+  # Decision thresholds
+  thresholds:
+    approve_below: 0.30
+    review_below: 0.70
+    decline_above: 0.70
+
+  # Performance targets
+  performance:
+    max_latency_ms: 50
+    redis_lookup_max_ms: 10
+    target_tps: 1000
+
+logging:
+  level: INFO
+  format: json
+  handlers:
+    - console
+    - file
+  file_path: logs/fraud-detection.log
