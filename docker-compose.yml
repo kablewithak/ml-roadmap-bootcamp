@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # TimescaleDB for tick data storage
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: risk_timescaledb
+    environment:
+      POSTGRES_DB: market_data
+      POSTGRES_USER: risk_admin
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-change_me_in_production}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./timescale_data:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d
+    command: postgres -c shared_preload_libraries=timescaledb
+    networks:
+      - risk_network
+
+  # Redis for real-time caching
+  redis:
+    image: redis:7-alpine
+    container_name: risk_redis
+    command: redis-server --appendonly yes --maxmemory 4gb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    networks:
+      - risk_network
+
+  # Apache Pulsar for event streaming
+  pulsar:
+    image: apachepulsar/pulsar:3.0.0
+    container_name: risk_pulsar
+    command: bin/pulsar standalone
+    ports:
+      - "6650:6650"  # Binary protocol
+      - "8080:8080"  # HTTP admin
+    volumes:
+      - ./pulsar_data:/pulsar/data
+    networks:
+      - risk_network
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: risk_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - risk_network
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: risk_grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+      - timescaledb
+    networks:
+      - risk_network
+
+  # Ray head node for distributed computing
+  ray-head:
+    image: rayproject/ray:latest
+    container_name: risk_ray_head
+    command: ray start --head --port=6379 --dashboard-host=0.0.0.0 --block
+    ports:
+      - "8265:8265"  # Ray dashboard
+      - "10001:10001"  # Ray client
+    volumes:
+      - ./src:/workspace/src
+    networks:
+      - risk_network
+
+networks:
+  risk_network:
+    driver: bridge
