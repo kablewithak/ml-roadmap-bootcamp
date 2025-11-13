@@ -1,0 +1,124 @@
+# ============================================================================
+# Grafana Datasource Provisioning
+# ============================================================================
+#
+# This file automatically configures datasources when Grafana starts.
+# No manual clicking in the UI!
+#
+# WHY AUTO-PROVISIONING:
+# - Infrastructure as Code (version controlled)
+# - Faster onboarding (new team member: docker-compose up → fully configured)
+# - Disaster recovery (restore from backup → datasources configured)
+#
+# ============================================================================
+
+apiVersion: 1
+
+# Delete datasources not defined here (cleanup)
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+  # ==========================================================================
+  # PROMETHEUS (Metrics)
+  # ==========================================================================
+  - name: Prometheus
+    type: prometheus
+    access: proxy  # Grafana proxies requests (users don't need direct access)
+    url: http://prometheus:9090
+    isDefault: true  # Default datasource for panels
+    editable: false  # Prevent users from modifying connection
+
+    jsonData:
+      # Time interval options
+      timeInterval: '15s'  # Matches Prometheus scrape_interval
+
+      # Query timeout
+      queryTimeout: '60s'
+
+      # Enable Prometheus's exemplar support (link metrics → traces)
+      # CRITICAL: This creates the "jump to trace" button in Grafana!
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger  # UID of Jaeger datasource (see below)
+
+      # HTTP method for queries (POST supports longer queries)
+      httpMethod: POST
+
+  # ==========================================================================
+  # LOKI (Logs)
+  # ==========================================================================
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+
+    jsonData:
+      # Max lines to return per query (prevent browser freeze)
+      maxLines: 1000
+
+      # Derived fields: Extract values from logs and create links
+      # This creates the "jump to trace" link in log lines!
+      derivedFields:
+        - datasourceUid: jaeger
+          matcherRegex: '"trace_id":"([0-9a-f]+)"'  # Extract trace_id from JSON
+          name: TraceID
+          url: '$${__value.raw}'  # Link to Jaeger trace
+
+  # ==========================================================================
+  # JAEGER (Traces)
+  # ==========================================================================
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    uid: jaeger  # IMPORTANT: Used by Prometheus exemplars
+    editable: false
+
+    jsonData:
+      # Trace-to-logs integration (link traces → logs)
+      # Click "Logs" in Jaeger span → shows related logs in Grafana
+      tracesToLogs:
+        datasourceUid: loki
+        tags: ['trace_id']  # Match logs by trace_id label
+        mappedTags:
+          - key: service
+            value: service
+        mapTagNamesEnabled: true
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+
+      # Trace-to-metrics integration (link traces → metrics)
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags:
+          - key: 'service.name'
+            value: 'service'
+        queries:
+          - name: 'Request rate'
+            query: 'sum(rate(http_server_requests_total{service="$service"}[5m]))'
+
+# ============================================================================
+# THE "HOLY GRAIL" OF OBSERVABILITY:
+# ============================================================================
+# With these configurations, you can:
+#
+# 1. METRICS → TRACES:
+#    - See spike in error rate on Prometheus graph
+#    - Click data point → "View exemplar trace"
+#    - Opens Jaeger trace for that exact request
+#
+# 2. TRACES → LOGS:
+#    - Investigating slow trace in Jaeger
+#    - Click "Logs" button on span
+#    - Shows all logs for that request (via trace_id)
+#
+# 3. LOGS → TRACES:
+#    - See error in Loki logs
+#    - Click trace_id link
+#    - Opens full trace in Jaeger
+#
+# This correlation is worth 10x productivity in debugging!
+# ============================================================================

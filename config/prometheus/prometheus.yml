@@ -1,0 +1,156 @@
+# ============================================================================
+# Prometheus Configuration
+# ============================================================================
+#
+# PROMETHEUS PULL MODEL:
+# Unlike DataDog/New Relic (push), Prometheus PULLS metrics by scraping HTTP endpoints.
+#
+# Example:
+#   15:00:00 - Prometheus: GET http://fraud-api:8000/metrics
+#   15:00:00 - fraud-api: Returns "predictions_total{status="approved"} 12745"
+#   15:00:00 - Prometheus: Stores (predictions_total, {status="approved"}, 12745, 15:00:00)
+#
+# TRADE-OFFS:
+# Pull model:
+#   ✅ Service discovery (Prometheus finds targets automatically in K8s)
+#   ✅ Monitoring health (if scrape fails, target is down)
+#   ❌ NAT/firewall complexity (Prometheus must reach targets)
+#
+# Push model:
+#   ✅ Works through NAT/firewall
+#   ✅ Apps control when to send
+#   ❌ No health monitoring (silence = no data OR no problems?)
+#
+# WHY PROMETHEUS WON:
+# In cloud environments (K8s), pull model + service discovery is more powerful.
+# ============================================================================
+
+global:
+  # How often to scrape targets
+  scrape_interval: 15s      # Default: Scrape every 15 seconds
+
+  # How often to evaluate alerting rules
+  evaluation_interval: 15s  # Check alerts every 15 seconds
+
+  # Attach labels to all time series
+  external_labels:
+    cluster: 'ml-fraud-detection'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load alerting rules
+rule_files:
+  - "/etc/prometheus/alerts.yml"
+
+# Scrape configurations (what to monitor)
+scrape_configs:
+  # ========================================================================
+  # 1. PROMETHEUS ITSELF (Meta-monitoring)
+  # ========================================================================
+  # Monitor the monitoring system!
+  # Alerts if Prometheus is down, running out of disk, etc.
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ========================================================================
+  # 2. FRAUD DETECTION API
+  # ========================================================================
+  # Our main ML service
+  #
+  # CRITICAL: This scrapes /metrics endpoint exposed by prometheus_client
+  # The endpoint returns:
+  #   - predictions_total
+  #   - payment_amount_usd
+  #   - feature_cache_hits_total
+  #   - etc.
+  - job_name: 'fraud-api'
+    scrape_interval: 10s  # Scrape more frequently (high-value service)
+    scrape_timeout: 5s
+
+    static_configs:
+      - targets:
+          - 'fraud-api:8000'
+
+    # Relabel metrics (add service label)
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: fraud-detection-api
+
+    # Metric relabeling (drop noisy metrics)
+    metric_relabel_configs:
+      # Drop metrics with high cardinality (prevent metric explosion)
+      - source_labels: [__name__]
+        regex: 'go_.*|process_.*'  # Drop Go runtime metrics (noisy)
+        action: drop
+
+  # ========================================================================
+  # 3. OPENTELEMETRY COLLECTOR
+  # ========================================================================
+  # Monitor the collector itself (meta-meta-monitoring!)
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets:
+          - 'otel-collector:8888'  # Collector's own metrics
+
+  # ========================================================================
+  # 4. REDIS (Feature Store)
+  # ========================================================================
+  # Redis exporter exposes Redis metrics in Prometheus format
+  # Uncomment if you add redis_exporter container
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets:
+  #         - 'redis-exporter:9121'
+
+  # ========================================================================
+  # 5. NODE EXPORTER (System Metrics)
+  # ========================================================================
+  # Monitors CPU, memory, disk, network of the host machine
+  # Uncomment if you add node_exporter container
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets:
+  #         - 'node-exporter:9100'
+
+  # ========================================================================
+  # 6. KAFKA (If using event streaming)
+  # ========================================================================
+  # Kafka JMX metrics via jmx_exporter
+  # - job_name: 'kafka'
+  #   static_configs:
+  #     - targets:
+  #         - 'kafka:9308'
+
+  # ========================================================================
+  # 7. ALERTMANAGER
+  # ========================================================================
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets:
+          - 'alertmanager:9093'
+
+# ============================================================================
+# ADVANCED: Remote Write (Send metrics to long-term storage)
+# ============================================================================
+# Prometheus stores metrics locally (30 days retention).
+# For long-term storage (years), use remote write to:
+# - Thanos (free, OSS, S3-backed)
+# - Cortex (free, OSS, multi-tenant)
+# - Grafana Cloud (paid, managed)
+# - DataDog (paid, sends Prometheus metrics to DataDog)
+#
+# remote_write:
+#   - url: "https://prometheus-us-central1.grafana.net/api/prom/push"
+#     basic_auth:
+#       username: ${GRAFANA_CLOUD_USER}
+#       password: ${GRAFANA_CLOUD_API_KEY}
+# ============================================================================

@@ -1,0 +1,164 @@
+# ============================================================================
+# Promtail Configuration (Log Shipper)
+# ============================================================================
+#
+# WHAT IS PROMTAIL:
+# The "agent" that collects logs and sends them to Loki.
+# Think of it as: Filebeat (ELK) or Fluentd, but for Loki.
+#
+# HOW IT WORKS:
+# 1. Promtail watches Docker container logs: /var/lib/docker/containers/*/*.log
+# 2. Extracts labels from Docker metadata (container name, compose service, etc.)
+# 3. Parses JSON logs (if structured) and extracts fields as labels
+# 4. Sends to Loki with labels: {container="fraud-api", level="error"}
+#
+# CRITICAL: Label Cardinality
+# ---------------------------
+# Loki creates ONE stream per unique label combination:
+# {container="fraud-api", level="info"} → Stream 1
+# {container="fraud-api", level="error"} → Stream 2
+#
+# HIGH CARDINALITY = EXPENSIVE:
+# Don't use: {user_id="12345"} ← 1M users = 1M streams = Loki explodes
+# DO use: {service="fraud-api", level="error"} ← 10 streams = efficient
+#
+# RULE: Keep label cardinality <100 unique combinations
+#
+# ============================================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+# Where to send logs
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    # Batching (reduce network calls)
+    batchwait: 1s
+    batchsize: 1048576  # 1MB
+
+    # Retry on failure
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+# Position file (tracks which logs have been sent)
+# Prevents re-sending logs after Promtail restart
+positions:
+  filename: /tmp/positions.yaml
+
+# Scrape configs (what logs to collect)
+scrape_configs:
+  # ==========================================================================
+  # Docker Container Logs
+  # ==========================================================================
+  # Collects logs from all Docker containers
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+
+    # Extract labels from Docker metadata
+    relabel_configs:
+      # Container name → container label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+
+      # Container ID → container_id label
+      - source_labels: ['__meta_docker_container_id']
+        target_label: container_id
+
+      # Docker Compose service name → service label
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: service
+
+      # Docker Compose project name → project label
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: project
+
+    # Pipeline: Parse and process logs
+    pipeline_stages:
+      # --------------------------------------------------------------------
+      # STAGE 1: Parse JSON logs
+      # --------------------------------------------------------------------
+      # Our fraud-api emits JSON logs:
+      # {"timestamp": "...", "level": "INFO", "msg": "...", "trace_id": "..."}
+      - json:
+          expressions:
+            level: level
+            timestamp: timestamp
+            trace_id: trace_id
+            span_id: span_id
+            logger: logger
+
+      # --------------------------------------------------------------------
+      # STAGE 2: Extract labels from parsed JSON
+      # --------------------------------------------------------------------
+      # CRITICAL: Only extract LOW-CARDINALITY fields as labels
+      # - ✅ level: 5 values (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+      # - ✅ logger: ~20 values (different modules)
+      # - ❌ trace_id: millions of values (TOO HIGH!)
+      #
+      # trace_id stays in log body (searchable, not a label)
+      - labels:
+          level: level
+          logger: logger
+
+      # --------------------------------------------------------------------
+      # STAGE 3: Set timestamp from log (not from Promtail ingestion time)
+      # --------------------------------------------------------------------
+      - timestamp:
+          source: timestamp
+          format: RFC3339  # "2024-01-15T10:23:45Z"
+
+      # --------------------------------------------------------------------
+      # STAGE 4: Drop noisy logs (optional)
+      # --------------------------------------------------------------------
+      # Don't send health check logs to Loki (noise)
+      - match:
+          selector: '{container="fraud-api"} |~ "GET /health"'
+          action: drop
+
+      # Drop Prometheus scrape logs (too frequent)
+      - match:
+          selector: '{container="fraud-api"} |~ "GET /metrics"'
+          action: drop
+
+      # --------------------------------------------------------------------
+      # STAGE 5: Parse custom fields (extract from message)
+      # --------------------------------------------------------------------
+      # Extract user_id from log message (but don't make it a label!)
+      # This lets you search: {container="fraud-api"} | json | user_id="12345"
+      - regex:
+          expression: '.*user_id=(?P<user_id>\d+).*'
+
+      # --------------------------------------------------------------------
+      # STAGE 6: Metrics from logs (log-based metrics)
+      # --------------------------------------------------------------------
+      # Create Prometheus metrics from log patterns
+      - metrics:
+          # Count error logs
+          error_log_total:
+            type: Counter
+            description: "Total error logs"
+            source: level
+            config:
+              action: inc
+              match_all: true
+              value: "1"
+
+  # ==========================================================================
+  # System Logs (optional)
+  # ==========================================================================
+  # Uncomment to collect system logs (syslog, journald)
+  # - job_name: system
+  #   journal:
+  #     max_age: 12h
+  #     labels:
+  #       job: systemd-journal
+  #   relabel_configs:
+  #     - source_labels: ['__journal__systemd_unit']
+  #       target_label: unit

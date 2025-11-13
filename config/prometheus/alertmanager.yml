@@ -1,0 +1,223 @@
+# ============================================================================
+# Alertmanager Configuration
+# ============================================================================
+#
+# ALERTMANAGER'S JOB:
+# 1. GROUPING: Combine related alerts into 1 notification
+#    Example: 10 pods down → 1 notification, not 10
+#
+# 2. INHIBITION: Suppress alerts when higher-priority alert is firing
+#    Example: If "Service Down", don't send "High Latency" (redundant)
+#
+# 3. SILENCING: Temporarily disable alerts (during maintenance)
+#
+# 4. ROUTING: Send alerts to different channels based on severity
+#    Example: critical → PagerDuty, warning → Slack, info → email
+#
+# 5. DEDUPLICATION: Don't send same alert twice
+#
+# BUSINESS VALUE:
+# - Without Alertmanager: 100 alerts → 100 notifications → alert fatigue
+# - With Alertmanager: 100 alerts → 5 notifications → actionable
+#
+# ============================================================================
+
+global:
+  # Default SMTP settings (for email notifications)
+  smtp_from: 'alertmanager@fraud-detection.ai'
+  smtp_smarthost: 'localhost:25'
+  smtp_require_tls: false
+
+  # Slack webhook URL (replace with your webhook)
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+# Templates for notification formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# ============================================================================
+# ROUTING: Where to send alerts
+# ============================================================================
+route:
+  # Default grouping (group alerts with same labels)
+  group_by: ['alertname', 'cluster', 'service']
+
+  # Wait before sending first notification (gather related alerts)
+  group_wait: 30s
+
+  # Wait before sending update about existing group
+  group_interval: 5m
+
+  # Wait before re-sending unresolved alerts
+  repeat_interval: 4h
+
+  # Default receiver (if no routes match)
+  receiver: 'default'
+
+  # Child routes (specific handling for different alert types)
+  routes:
+    # ------------------------------------------------------------------------
+    # CRITICAL ALERTS → Page on-call engineer
+    # ------------------------------------------------------------------------
+    - match:
+        severity: critical
+      receiver: 'pagerduty'
+      continue: true  # Also send to Slack
+
+      # Don't wait to group critical alerts (send immediately)
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # ------------------------------------------------------------------------
+    # WARNING ALERTS → Slack #alerts channel
+    # ------------------------------------------------------------------------
+    - match:
+        severity: warning
+      receiver: 'slack-alerts'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # ------------------------------------------------------------------------
+    # ML PERFORMANCE ALERTS → Slack #ml-ops channel + email ML team
+    # ------------------------------------------------------------------------
+    - match_re:
+        category: 'ml_performance|data_quality'
+      receiver: 'ml-team'
+      group_by: ['alertname', 'model_name']
+      group_wait: 2m
+      repeat_interval: 12h
+
+    # ------------------------------------------------------------------------
+    # BUSINESS ALERTS → Slack #business-metrics + email executives
+    # ------------------------------------------------------------------------
+    - match:
+        category: business
+      receiver: 'business-team'
+      group_wait: 5m
+      repeat_interval: 1h
+
+# ============================================================================
+# INHIBITION RULES: Suppress redundant alerts
+# ============================================================================
+inhibit_rules:
+  # If service is down, don't alert about high latency (obviously slow if down!)
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match:
+      alertname: 'HighRequestLatency'
+    equal: ['job']
+
+  # If critical alert is firing, suppress warning for same issue
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+# ============================================================================
+# RECEIVERS: How to send notifications
+# ============================================================================
+receivers:
+  # --------------------------------------------------------------------------
+  # Default receiver (webhook for demo purposes)
+  # --------------------------------------------------------------------------
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:5001/alerts'
+        send_resolved: true
+
+  # --------------------------------------------------------------------------
+  # PagerDuty (for critical alerts)
+  # --------------------------------------------------------------------------
+  - name: 'pagerduty'
+    pagerduty_configs:
+      - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ template "pagerduty.default.instances" . }}'
+          num_firing: '{{ .Alerts.Firing | len }}'
+          num_resolved: '{{ .Alerts.Resolved | len }}'
+
+  # --------------------------------------------------------------------------
+  # Slack #alerts channel
+  # --------------------------------------------------------------------------
+  - name: 'slack-alerts'
+    slack_configs:
+      - channel: '#alerts'
+        title: '{{ .GroupLabels.alertname }}'
+        text: |
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+          *Severity:* {{ .GroupLabels.severity }}
+          *Firing:* {{ .Alerts.Firing | len }}
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+  # --------------------------------------------------------------------------
+  # ML Team (Slack + Email)
+  # --------------------------------------------------------------------------
+  - name: 'ml-team'
+    slack_configs:
+      - channel: '#ml-ops'
+        title: 'ML Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Model:* {{ .GroupLabels.model_name }}
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+
+          *Runbook:* {{ .CommonAnnotations.runbook }}
+
+    email_configs:
+      - to: 'ml-team@fraud-detection.ai'
+        headers:
+          Subject: '[ML Alert] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>{{ .GroupLabels.alertname }}</h2>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Severity:</strong> {{ .GroupLabels.severity }}</p>
+
+  # --------------------------------------------------------------------------
+  # Business Team (for revenue/fraud alerts)
+  # --------------------------------------------------------------------------
+  - name: 'business-team'
+    slack_configs:
+      - channel: '#business-metrics'
+        title: 'Business Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          🚨 *BUSINESS IMPACT ALERT*
+
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+
+          *Action Required:* Check Grafana Business Dashboard
+
+    email_configs:
+      - to: 'executives@fraud-detection.ai'
+        headers:
+          Subject: '[BUSINESS ALERT] {{ .GroupLabels.alertname }}'
+
+# ============================================================================
+# TIME INTERVALS (for on-call schedules)
+# ============================================================================
+# Suppress non-critical alerts outside business hours
+time_intervals:
+  - name: business-hours
+    time_intervals:
+      - times:
+          - start_time: '09:00'
+            end_time: '17:00'
+        weekdays: ['monday:friday']
+
+# ============================================================================
+# EXAMPLE: Use time intervals in routes
+# ============================================================================
+# Uncomment to only send warning alerts during business hours:
+#
+# routes:
+#   - match:
+#       severity: warning
+#     receiver: 'slack-alerts'
+#     active_time_intervals:
+#       - business-hours
+# ============================================================================

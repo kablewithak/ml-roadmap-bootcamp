@@ -1,0 +1,21 @@
+# ============================================================================
+# Grafana Dashboard Provisioning
+# ============================================================================
+#
+# Auto-load dashboards from /var/lib/grafana/dashboards/
+#
+# ============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: 'ML Fraud Detection Dashboards'
+    orgId: 1
+    folder: 'ML Observability'
+    type: file
+    disableDeletion: false  # Allow users to delete
+    updateIntervalSeconds: 10
+    allowUiUpdates: true  # Allow users to edit (changes won't persist across restarts)
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

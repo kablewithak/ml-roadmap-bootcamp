@@ -1,0 +1,407 @@
+# ============================================================================
+# Prometheus Alerting Rules
+# ============================================================================
+#
+# HOW ALERTING WORKS:
+# 1. Prometheus evaluates these rules every 15s (evaluation_interval)
+# 2. If rule condition is true for `for` duration, alert FIRES
+# 3. Prometheus sends alert to Alertmanager
+# 4. Alertmanager groups/deduplicates/routes alerts
+# 5. Alertmanager sends notification (Slack, PagerDuty, email)
+#
+# ALERT STATES:
+# - Inactive: Condition is false
+# - Pending: Condition is true, but hasn't been true for `for` duration yet
+# - Firing: Condition has been true for `for` duration → sends to Alertmanager
+#
+# CRITICAL: Alert Fatigue
+# -----------------------
+# BAD: 100 alerts/day → Team ignores them → Real issues missed
+# GOOD: 5 alerts/week → Team investigates every alert
+#
+# RULE OF THUMB:
+# - Page (wake someone up): Only for customer-impacting issues
+# - Ticket (investigate tomorrow): For degradation that doesn't impact customers yet
+# - Dashboard: For everything else (visibility without noise)
+#
+# ============================================================================
+
+groups:
+  # ==========================================================================
+  # ML MODEL PERFORMANCE ALERTS
+  # ==========================================================================
+  # These detect when your ML model is degrading
+  # BUSINESS IMPACT: Silent model degradation = revenue loss
+  - name: ml_model_performance
+    interval: 30s  # Evaluate every 30 seconds
+
+    rules:
+      # ----------------------------------------------------------------------
+      # ALERT: High Fraud Block Rate
+      # ----------------------------------------------------------------------
+      # If we're blocking >20% of transactions, either:
+      # 1. Model is too sensitive (false positives → lost revenue)
+      # 2. Actual fraud spike (need to investigate)
+      - alert: HighFraudBlockRate
+        expr: |
+          (
+            sum(rate(predictions_total{prediction="block"}[5m]))
+            /
+            sum(rate(predictions_total[5m]))
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          category: ml_performance
+        annotations:
+          summary: "High fraud block rate ({{ $value | humanizePercentage }})"
+          description: |
+            Fraud detection is blocking {{ $value | humanizePercentage }} of transactions.
+
+            Normal rate: 5-10%
+            Current rate: {{ $value | humanizePercentage }}
+
+            POSSIBLE CAUSES:
+            1. Model drift (model became too sensitive)
+            2. Actual fraud spike (check external news)
+            3. Data pipeline issue (features corrupted)
+
+            RUNBOOK: /runbooks/high-fraud-block-rate.md
+
+      # ----------------------------------------------------------------------
+      # ALERT: Low Fraud Detection Rate
+      # ----------------------------------------------------------------------
+      # If we're blocking <1% of transactions, model may not be working
+      - alert: LowFraudDetectionRate
+        expr: |
+          (
+            sum(rate(predictions_total{prediction="block"}[5m]))
+            /
+            sum(rate(predictions_total[5m]))
+          ) < 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: ml_performance
+        annotations:
+          summary: "Suspiciously low fraud detection rate"
+          description: |
+            Blocking only {{ $value | humanizePercentage }} of transactions (normal: 5-10%).
+
+            POSSIBLE CAUSES:
+            1. Model not loaded (check startup logs)
+            2. Features missing (check cache hit rate)
+            3. Model degraded (check model performance metrics)
+
+      # ----------------------------------------------------------------------
+      # ALERT: High Prediction Latency
+      # ----------------------------------------------------------------------
+      # ML inference should be <100ms at p95
+      # If slower, customers abandon checkout
+      - alert: HighPredictionLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(prediction_latency_seconds_bucket[5m])) by (le)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: ml_performance
+        annotations:
+          summary: "ML prediction latency p95 > 100ms"
+          description: |
+            p95 prediction latency: {{ $value | humanizeDuration }}
+
+            SLO: <100ms
+            Current: {{ $value | humanizeDuration }}
+
+            BUSINESS IMPACT:
+            - Every 100ms delay = 1% drop in conversions
+            - Lost revenue: ~${{ $value | multiply 10000 }}/day
+
+            POSSIBLE CAUSES:
+            1. Redis cache down (features fetched from DB)
+            2. Model loading from disk (should be in memory)
+            3. CPU throttling (check container limits)
+
+            RUNBOOK: /runbooks/high-prediction-latency.md
+
+      # ----------------------------------------------------------------------
+      # ALERT: Feature Cache Miss Rate High
+      # ----------------------------------------------------------------------
+      # Cache hit rate should be >95%
+      # High miss rate = slow predictions (fetch from DB instead of Redis)
+      - alert: HighCacheMissRate
+        expr: |
+          (
+            sum(rate(feature_cache_misses_total[5m]))
+            /
+            (sum(rate(feature_cache_hits_total[5m])) + sum(rate(feature_cache_misses_total[5m])))
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          category: feature_store
+        annotations:
+          summary: "Feature cache miss rate >20%"
+          description: |
+            Cache miss rate: {{ $value | humanizePercentage }}
+
+            IMPACT:
+            - Prediction latency increases from 50ms → 500ms
+            - Customers experience slow checkout
+
+            POSSIBLE CAUSES:
+            1. Redis is down (check redis exporter metrics)
+            2. Batch job didn't run (features not precomputed)
+            3. Cache eviction (Redis memory full)
+
+  # ==========================================================================
+  # SERVICE HEALTH ALERTS
+  # ==========================================================================
+  - name: service_health
+    interval: 30s
+
+    rules:
+      # ----------------------------------------------------------------------
+      # ALERT: Service Down
+      # ----------------------------------------------------------------------
+      # If we can't scrape metrics, service is down
+      - alert: ServiceDown
+        expr: up{job="fraud-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "{{ $labels.job }} is DOWN"
+          description: |
+            Service {{ $labels.job }} has been down for 1 minute.
+
+            BUSINESS IMPACT:
+            - ALL payment processing is blocked
+            - Revenue loss: $10,000/minute
+
+            IMMEDIATE ACTION:
+            1. Check pod logs: kubectl logs -l app=fraud-api
+            2. Check pod status: kubectl get pods -l app=fraud-api
+            3. Trigger rollback if recent deployment
+
+      # ----------------------------------------------------------------------
+      # ALERT: High Error Rate
+      # ----------------------------------------------------------------------
+      # More than 5% of requests returning errors
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(errors_total[5m]))
+            /
+            sum(rate(predictions_total[5m]))
+          ) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          category: reliability
+        annotations:
+          summary: "Error rate >5%"
+          description: |
+            {{ $value | humanizePercentage }} of requests are failing.
+
+            CUSTOMER IMPACT: Users seeing errors during checkout
+
+            Check error breakdown:
+            - By type: errors_total{error_type}
+            - Recent logs: Grafana → Logs panel → filter by trace_id
+
+      # ----------------------------------------------------------------------
+      # ALERT: High Request Latency
+      # ----------------------------------------------------------------------
+      # p95 latency >500ms (SLO violation)
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_duration_seconds_bucket{job="fraud-api"}[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "p95 request latency >500ms"
+          description: |
+            p95 latency: {{ $value | humanizeDuration }}
+
+            SLO: <100ms (normal), <500ms (degraded)
+            Current: {{ $value | humanizeDuration }}
+
+            Check:
+            - Jaeger traces for slow requests
+            - Database query performance
+            - Redis latency
+
+  # ==========================================================================
+  # RESOURCE ALERTS
+  # ==========================================================================
+  - name: resources
+    interval: 1m
+
+    rules:
+      # ----------------------------------------------------------------------
+      # ALERT: High Memory Usage
+      # ----------------------------------------------------------------------
+      - alert: HighMemoryUsage
+        expr: |
+          (container_memory_usage_bytes{name="fraud-api"}
+          /
+          container_spec_memory_limit_bytes{name="fraud-api"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "Memory usage >85%"
+          description: |
+            Container using {{ $value | humanizePercentage }} of memory limit.
+
+            RISK: OOMKill in next few minutes (container restart)
+
+            POSSIBLE CAUSES:
+            1. Memory leak (check for gradual increase over time)
+            2. Increased traffic (scale up)
+            3. Large batch processing (optimize code)
+
+      # ----------------------------------------------------------------------
+      # ALERT: High CPU Usage
+      # ----------------------------------------------------------------------
+      - alert: HighCPUUsage
+        expr: |
+          rate(container_cpu_usage_seconds_total{name="fraud-api"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "CPU usage >80%"
+          description: |
+            CPU usage: {{ $value | humanizePercentage }}
+
+            IMPACT: Increased latency (requests queued)
+
+            ACTIONS:
+            1. Check for CPU-intensive code (profiling)
+            2. Scale horizontally (add more pods)
+            3. Optimize hot paths
+
+  # ==========================================================================
+  # BUSINESS METRICS ALERTS
+  # ==========================================================================
+  - name: business_metrics
+    interval: 1m
+
+    rules:
+      # ----------------------------------------------------------------------
+      # ALERT: Revenue Drop
+      # ----------------------------------------------------------------------
+      # Revenue dropped >50% compared to last hour
+      - alert: RevenueDrop
+        expr: |
+          (
+            sum(rate(revenue_usd_total[5m]))
+            /
+            sum(rate(revenue_usd_total[5m] offset 1h))
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: critical
+          category: business
+        annotations:
+          summary: "Revenue dropped {{ $value | humanizePercentage }}"
+          description: |
+            Revenue is {{ $value | humanizePercentage }} of normal rate.
+
+            BUSINESS IMPACT: ${{ $value | multiply 10000 }}/hour revenue loss
+
+            POSSIBLE CAUSES:
+            1. Payment processor down
+            2. High fraud block rate (false positives)
+            3. Traffic drop (marketing campaign ended?)
+
+      # ----------------------------------------------------------------------
+      # ALERT: Fraud Blocked Amount Spike
+      # ----------------------------------------------------------------------
+      # Sudden spike in blocked fraud amount (>10x normal)
+      - alert: FraudSpike
+        expr: |
+          sum(rate(fraud_blocked_usd_total[5m])) >
+          10 * sum(rate(fraud_blocked_usd_total[5m] offset 1h))
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Fraud blocked amount spike detected"
+          description: |
+            Blocking {{ $value | humanize }}x more fraud than usual.
+
+            This could indicate:
+            1. Actual fraud attack (investigate source IPs, patterns)
+            2. Model false positives (check precision metrics)
+
+  # ==========================================================================
+  # DATA DRIFT ALERTS (Updated by batch jobs)
+  # ==========================================================================
+  - name: data_drift
+    interval: 5m
+
+    rules:
+      # ----------------------------------------------------------------------
+      # ALERT: Feature PSI (Population Stability Index) High
+      # ----------------------------------------------------------------------
+      # PSI >0.25 indicates significant distribution shift
+      - alert: FeatureDriftDetected
+        expr: feature_psi > 0.25
+        for: 10m
+        labels:
+          severity: warning
+          category: data_quality
+        annotations:
+          summary: "Feature drift detected: {{ $labels.feature_name }}"
+          description: |
+            PSI for {{ $labels.feature_name }}: {{ $value }}
+
+            THRESHOLDS:
+            - <0.1: No significant change
+            - 0.1-0.25: Moderate drift
+            - >0.25: Significant drift (ALERT)
+
+            IMPACT: Model accuracy may degrade
+
+            ACTION:
+            1. Investigate what changed (external data source?)
+            2. Retrain model with recent data
+            3. A/B test new model before deploying
+
+      # ----------------------------------------------------------------------
+      # ALERT: Model Performance Degradation
+      # ----------------------------------------------------------------------
+      # Precision dropped below 85%
+      - alert: ModelPerformanceDegraded
+        expr: model_performance{metric="precision"} < 0.85
+        for: 15m
+        labels:
+          severity: critical
+          category: ml_performance
+        annotations:
+          summary: "Model precision dropped to {{ $value | humanizePercentage }}"
+          description: |
+            Model {{ $labels.model_name }} precision: {{ $value | humanizePercentage }}
+
+            SLO: >90%
+            Current: {{ $value | humanizePercentage }}
+
+            BUSINESS IMPACT:
+            - Higher false positive rate
+            - Legitimate users blocked
+            - Customer complaints increase
+
+            ACTION: Roll back to previous model version

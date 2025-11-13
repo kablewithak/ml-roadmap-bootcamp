@@ -1,0 +1,168 @@
+# ============================================================================
+# OpenTelemetry Collector Configuration
+# ============================================================================
+#
+# ARCHITECTURE:
+#   [Apps] ──OTLP gRPC──> [OTel Collector] ──> [Prometheus] (metrics)
+#                                           └──> [Jaeger] (traces)
+#
+# WHY USE A COLLECTOR:
+# Instead of apps exporting directly to backends, we centralize through collector:
+# 1. RELIABILITY: Collector buffers and retries on backend failures
+# 2. TRANSFORMATION: Relabel metrics, sample traces, filter data
+# 3. FANOUT: Send same data to multiple backends (e.g., Jaeger + DataDog)
+# 4. DECOUPLING: Swap backends without changing app code
+#
+# TRADE-OFF:
+# - ✅ Flexibility, reliability, observability of observability
+# - ❌ One more hop (adds ~2ms latency, but batching amortizes this)
+#
+# FAILURE MODE:
+# If collector goes down, apps buffer data in memory (up to 512MB), then drop.
+# SOLUTION: Run collector as sidecar (1 per pod) for reliability.
+# ============================================================================
+
+# Receivers: How data enters the collector
+receivers:
+  # OTLP receiver (OpenTelemetry Protocol)
+  # Receives traces and metrics from our fraud-api
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317  # Our apps connect here
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus receiver (scrape collector's own metrics)
+  # This lets you monitor the collector itself!
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['localhost:8888']
+
+# Processors: Transform data before exporting
+processors:
+  # Batch processor: Buffer data and send in batches
+  # WHY: Reduces network overhead (1 request per 10s vs 1000 requests/s)
+  batch:
+    timeout: 10s           # Export every 10 seconds
+    send_batch_size: 1024  # Or when batch reaches 1024 items
+
+  # Memory limiter: Prevent OOM by dropping data when memory is high
+  # CRITICAL: Without this, collector can crash under load
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512        # Max memory usage
+    spike_limit_mib: 128  # Allow spikes up to this
+
+  # Resource processor: Add attributes to all telemetry
+  resource:
+    attributes:
+      - key: environment
+        value: development
+        action: upsert
+
+  # Attributes processor: Modify/remove attributes
+  attributes:
+    actions:
+      # Remove high-cardinality attributes (prevent metric explosion)
+      - key: http.user_agent
+        action: delete
+      # Rename attributes
+      - key: http.status_code
+        from_attribute: http.response.status_code
+        action: upsert
+
+  # Probabilistic sampler: Sample X% of traces
+  # WHY: At 1M requests/day, storing 100% of traces = 100GB/day
+  #      Sampling 1% = 1GB/day (99% cost reduction)
+  #
+  # WHEN TO SAMPLE:
+  # - High traffic (>10K req/s): Sample 0.1-1%
+  # - Medium traffic (1K req/s): Sample 10%
+  # - Low traffic (<100 req/s): Sample 100%
+  #
+  # IMPORTANT: Always trace errors (use tail_sampling for this)
+  probabilistic_sampler:
+    sampling_percentage: 10.0  # 10% sampling (good for development)
+
+# Exporters: Where to send data
+exporters:
+  # OTLP exporter to Jaeger (traces)
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true  # No TLS in development (use TLS in production!)
+
+  # Prometheus exporter (metrics)
+  # OTel Collector exposes /metrics endpoint that Prometheus scrapes
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: ml_fraud  # Prefix all metrics with ml_fraud_
+
+  # Logging exporter (for debugging)
+  # Prints telemetry to collector logs (useful for troubleshooting)
+  logging:
+    loglevel: info
+    sampling_initial: 5      # Log first 5 items
+    sampling_thereafter: 100 # Then log every 100th item
+
+  # OPTIONAL: Send to DataDog/New Relic/Honeycomb
+  # Uncomment to forward to commercial backends
+  # otlp/datadog:
+  #   endpoint: https://api.datadoghq.com
+  #   headers:
+  #     DD-API-KEY: ${DD_API_KEY}
+
+# Extensions: Optional features
+extensions:
+  # Health check endpoint (for Docker/K8s)
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # pprof for performance debugging
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # zpages for live debugging (http://localhost:55679/debug/tracez)
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+# Service: Wire everything together
+service:
+  extensions: [health_check, pprof, zpages]
+
+  pipelines:
+    # TRACES pipeline
+    traces:
+      receivers: [otlp]
+      processors:
+        - memory_limiter       # Prevent OOM
+        - resource             # Add environment tags
+        - probabilistic_sampler # Sample 10% of traces
+        - batch                # Batch before sending
+      exporters:
+        - otlp/jaeger          # Send to Jaeger
+        - logging              # Log sample to console
+
+    # METRICS pipeline
+    metrics:
+      receivers: [otlp, prometheus]
+      processors:
+        - memory_limiter
+        - resource
+        - attributes  # Remove high-cardinality labels
+        - batch
+      exporters:
+        - prometheus  # Expose for Prometheus to scrape
+        - logging
+
+  # Telemetry: Collector's own metrics
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888  # Prometheus can scrape collector metrics here

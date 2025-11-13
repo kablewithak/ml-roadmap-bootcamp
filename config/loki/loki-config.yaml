@@ -1,0 +1,127 @@
+# ============================================================================
+# Loki Configuration (Log Aggregation)
+# ============================================================================
+#
+# WHAT IS LOKI:
+# "Like Prometheus, but for logs"
+# - Prometheus: Stores metrics (numbers over time)
+# - Loki: Stores logs (text over time)
+#
+# KEY DIFFERENCE FROM ELK STACK:
+# - Elasticsearch: Indexes EVERY field in logs (expensive, but fast search)
+# - Loki: Only indexes labels (cheap, but requires structured logs)
+#
+# COST COMPARISON:
+# - ELK: 10M logs/day = 50GB indexed = $500/month
+# - Loki: 10M logs/day = 5GB compressed = $50/month
+#
+# TRADE-OFF:
+# - ✅ 10x cheaper storage
+# - ✅ Simpler operations (no sharding, no complex tuning)
+# - ❌ Slower full-text search (but LogQL is fast for label queries)
+#
+# WHEN TO USE LOKI:
+# - Structured JSON logs with consistent labels
+# - Grafana already used for metrics (unified UI)
+# - Cost-sensitive (startup/mid-size companies)
+#
+# WHEN TO USE ELK:
+# - Complex search requirements (regex across all fields)
+# - Need to search unstructured logs
+# - Large teams with dedicated ELK expertise
+#
+# ============================================================================
+
+auth_enabled: false  # Disable multi-tenancy (single user mode)
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: info
+
+# Ingester: Receives logs from Promtail and batches them
+ingester:
+  # How long to keep logs in memory before flushing to storage
+  chunk_idle_period: 5m       # Flush if no new logs for 5 min
+  chunk_target_size: 1048576  # Or when chunk reaches 1MB
+
+  # How many chunks to keep in memory (more = higher memory usage)
+  max_chunk_age: 1h
+
+  lifecycler:
+    # Ring configuration (for multi-instance Loki)
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1  # Single instance (no replication)
+
+# Schema: How logs are stored
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: boltdb-shipper  # Local storage (use S3/GCS in production)
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h  # New index every 24 hours
+
+# Storage: Where to store log data
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /loki/boltdb-shipper-active
+    cache_location: /loki/boltdb-shipper-cache
+    cache_ttl: 24h
+    shared_store: filesystem
+
+  filesystem:
+    directory: /loki/chunks
+
+# Compactor: Cleanup old data
+compactor:
+  working_directory: /loki/compactor
+  shared_store: filesystem
+  compaction_interval: 10m
+
+# Retention: How long to keep logs
+limits_config:
+  # Delete logs older than 30 days
+  retention_period: 720h  # 30 days
+
+  # Prevent abuse (rate limiting)
+  enforce_metric_name: false
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h  # Don't accept logs >7 days old
+
+  # Cardinality limits (prevent label explosion)
+  max_streams_per_user: 10000
+  max_global_streams_per_user: 100000
+
+  # Query limits
+  max_query_length: 721h  # Can query 30 days of logs
+  max_query_series: 500   # Max time series returned
+
+# Query frontend: Caching and query splitting
+query_range:
+  # Cache query results (speeds up dashboards)
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+  # Split large queries into smaller chunks (parallel execution)
+  split_queries_by_interval: 15m
+
+# Ruler: Alerting based on logs (like Prometheus alerts, but for logs)
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-temp
+  alertmanager_url: http://alertmanager:9093
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true
