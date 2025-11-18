@@ -1,0 +1,13 @@
+{% if success %}
+<div class="answer">
+    <h3>Ingestion Complete</h3>
+    <p>Successfully ingested {{ num_chunks }} chunks into the vector store.</p>
+    <p style="color: var(--text-muted); margin-top: 12px;">
+        Refresh the page to update the status, then try asking a question.
+    </p>
+</div>
+{% else %}
+<div class="error">
+    <strong>Ingestion Failed</strong>
+</div>
+{% endif %}

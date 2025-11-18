@@ -1,0 +1,21 @@
+{% if sources %}
+<div class="sources">
+    <h4>Sources ({{ sources|length }} retrieved)</h4>
+    {% for source in sources %}
+    <div class="source-item">
+        <div class="source-header">
+            <span class="source-name">[{{ source.rank }}] {{ source.metadata.source }}</span>
+            <span class="source-score">Score: {{ "%.3f"|format(source.score) }}</span>
+        </div>
+        <div class="source-preview">
+            Chunk {{ source.metadata.chunk_index + 1 }}/{{ source.metadata.chunk_total }}<br>
+            {{ source.content[:300] }}{% if source.content|length > 300 %}...{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p style="color: var(--text-muted); text-align: center;">
+    No sources available. Run a query first.
+</p>
+{% endif %}

@@ -1,0 +1,21 @@
+<div class="answer">
+    <h3>Answer</h3>
+    <p>{{ answer }}</p>
+</div>
+
+{% if sources %}
+<div class="sources">
+    <h4>Sources ({{ sources|length }} retrieved)</h4>
+    {% for source in sources %}
+    <div class="source-item">
+        <div class="source-header">
+            <span class="source-name">{{ source.metadata.source }}</span>
+            <span class="source-score">Score: {{ "%.2f"|format(source.score) }}</span>
+        </div>
+        <div class="source-preview">
+            {{ source.content[:200] }}{% if source.content|length > 200 %}...{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
