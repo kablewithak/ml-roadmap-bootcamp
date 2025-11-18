@@ -9,6 +9,28 @@ A question-answering assistant over a local knowledge base using Retrieval-Augme
 - **CLI & Web UI**: Interact via command line or browser
 - **Evaluation harness**: Built-in testing with precision metrics
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        RAG Pipeline                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────┐    ┌──────────┐    ┌─────────┐    ┌─────────┐ │
+│  │   KB    │───▶│  Ingest  │───▶│ ChromaDB│    │         │ │
+│  │  (md)   │    │  + Embed │    │ (store) │    │         │ │
+│  └─────────┘    └──────────┘    └────┬────┘    │         │ │
+│                                      │         │  Ollama │ │
+│  ┌─────────┐    ┌──────────┐    ┌────▼────┐    │   LLM   │ │
+│  │  Query  │───▶│ Retrieve │───▶│ Context │───▶│         │ │
+│  └─────────┘    │  (top-k) │    │ + Query │    │         │ │
+│                 └──────────┘    └────┬────┘    └────┬────┘ │
+│                                      │              │      │
+│                                      └──────────────┘      │
+│                                           Answer           │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## Stack
 
 | Component | Technology | Why |
@@ -101,11 +123,45 @@ Results are saved to `eval/report.md`.
 
 See `.env.example` for available configuration options.
 
+## Web Interface
+
+Start the web server:
+
+```bash
+uvicorn rag.web.app:app --reload
+```
+
+Open http://127.0.0.1:8000 in your browser.
+
+## CLI Commands
+
+```bash
+# Show all commands
+python -m rag.cli --help
+
+# Ingest documents
+python -m rag.cli ingest
+
+# Ask a question
+python -m rag.cli ask "What is RAG?"
+
+# Show detailed sources
+python -m rag.cli show-sources
+
+# Check system health
+python -m rag.cli health
+
+# Show configuration
+python -m rag.cli config
+```
+
 ## Documentation
 
-- [Design Decisions](docs/decisions.md)
-- [Usage Guide](docs/usage.md)
-- [Troubleshooting](docs/troubleshooting.md)
+- [Design Decisions](docs/decisions.md) - Stack choices and trade-offs
+- [Usage Guide](docs/usage.md) - Installation and examples
+- [Troubleshooting](docs/troubleshooting.md) - Common issues
+- [Checklist](docs/checklist.md) - Quality audit
+- [Portfolio](docs/portfolio.md) - Project summary
 
 ## License
 
