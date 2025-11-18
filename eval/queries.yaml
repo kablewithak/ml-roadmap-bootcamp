@@ -1,0 +1,71 @@
+# RAG Assistant Evaluation Queries
+#
+# Each query specifies:
+# - query: The question to ask
+# - expected_nuggets: Key terms that should appear in retrieved content
+# - expected_sources: Source files that should be in top results
+
+queries:
+  - query: "What is RAG?"
+    expected_nuggets:
+      - "retrieval"
+      - "augmented"
+      - "generation"
+    expected_sources:
+      - "glossary_ai_rag.md"
+
+  - query: "How do I define a function in Python?"
+    expected_nuggets:
+      - "def"
+      - "function"
+      - "return"
+    expected_sources:
+      - "python_basics.md"
+
+  - query: "What are embeddings?"
+    expected_nuggets:
+      - "vector"
+      - "semantic"
+      - "representation"
+    expected_sources:
+      - "glossary_ai_rag.md"
+
+  - query: "What is the remote work policy?"
+    expected_nuggets:
+      - "remote"
+      - "days"
+      - "week"
+    expected_sources:
+      - "policies.md"
+
+  - query: "How do I handle errors in Python?"
+    expected_nuggets:
+      - "try"
+      - "except"
+      - "exception"
+    expected_sources:
+      - "python_basics.md"
+
+  - query: "What is top-k retrieval?"
+    expected_nuggets:
+      - "top"
+      - "similar"
+      - "documents"
+    expected_sources:
+      - "glossary_ai_rag.md"
+
+  - query: "How do I get started with this project?"
+    expected_nuggets:
+      - "install"
+      - "ollama"
+      - "ingest"
+    expected_sources:
+      - "project_faq.md"
+
+  - query: "What is the code review policy?"
+    expected_nuggets:
+      - "pull request"
+      - "review"
+      - "approval"
+    expected_sources:
+      - "policies.md"
