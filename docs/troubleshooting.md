@@ -93,35 +93,92 @@ python -m rag.cli ingest --force
 
 ---
 
-## Ollama Setup on Windows
+## Ollama Setup Guide
 
 ### Installation
 
-1. Download from https://ollama.ai
-2. Run the installer
+**Windows**:
+1. Download installer from https://ollama.ai
+2. Run the installer (follows standard Windows installation)
 3. Ollama runs as a system service automatically
+
+**Linux**:
+```bash
+curl -fsSL https://ollama.ai/install.sh | sh
+```
+
+**macOS**:
+```bash
+brew install ollama
+```
 
 ### Pulling Models
 
-```powershell
-# Pull the recommended model
+```bash
+# Pull the recommended model (Llama 3.2 3B - 2GB download)
 ollama pull llama3.2:3b
 
-# Verify it downloaded
+# Alternative: Larger 7B model (if you have 16GB+ RAM)
+ollama pull llama3.2:7b
+
+# Verify installation
 ollama list
 ```
 
-### Example Session
+### Example Session Output
 
-```powershell
-PS> ollama list
-NAME           ID           SIZE   MODIFIED
-llama3.2:3b    abc123...    2.0GB  2 hours ago
+```
+$ ollama list
+NAME           ID              SIZE      MODIFIED
+llama3.2:3b    a80c4f17acd5    2.0 GB    2 hours ago
 
-PS> ollama run llama3.2:3b "Hello, what can you do?"
-Hello! I'm a helpful AI assistant...
+$ ollama run llama3.2:3b "What is RAG in AI?"
+RAG stands for Retrieval-Augmented Generation. It's a technique that
+combines information retrieval with text generation. The system first
+retrieves relevant documents from a knowledge base, then uses those
+documents as context for a language model to generate more accurate
+and grounded responses...
+```
+
+### Verifying Ollama is Running
+
+```bash
+# Check API is responding
+curl http://localhost:11434/api/tags
+
+# Expected output: {"models":[{"name":"llama3.2:3b",...}]}
+```
+
+### Model Selection Guide
+
+| Model | Size | RAM Required | Use Case |
+|-------|------|-------------|----------|
+| llama3.2:1b | 1.3 GB | 4GB | Testing, quick responses |
+| llama3.2:3b | 2.0 GB | 8GB | **Recommended** - good quality/speed balance |
+| llama3.2:7b | 4.7 GB | 16GB | Higher quality, slower |
+
+### Command Reference
+
+```bash
+# List downloaded models
+ollama list
+
+# Pull a model
+ollama pull llama3.2:3b
+
+# Run interactive chat
+ollama run llama3.2:3b
+
+# Show model details
+ollama show llama3.2:3b
+
+# Remove a model
+ollama rm llama3.2:3b
+
+# Start server (usually auto-started)
+ollama serve
 ```
 
 ---
 
-*Last updated: Initial project setup*
+*Last updated: Block 4 - Ollama setup documentation*

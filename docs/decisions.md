@@ -110,6 +110,40 @@ This document captures key architectural and implementation decisions for the RA
 
 **Future work**: Document parameter sweep results in this file.
 
+### LLM Parameters
+
+**Decision**: Use temperature=0.7, top_p=0.9, max_tokens=512 as defaults.
+
+| Parameter | Value | Why |
+|-----------|-------|-----|
+| `temperature` | 0.7 | Balanced creativity/coherence for QA tasks. Lower (0.3) for more deterministic, higher (0.9) for creative. |
+| `top_p` | 0.9 | Nucleus sampling threshold. 0.9 keeps 90% probability mass, reducing unlikely tokens while maintaining variety. |
+| `max_tokens` | 512 | Sufficient for detailed answers without excessive generation. Increase for longer explanations. |
+
+**Rationale**:
+- **Temperature 0.7**: RAG QA benefits from some creativity in phrasing while staying factual. We're not doing pure extraction (would use 0.1) or creative writing (would use 0.9+).
+- **Top-p 0.9**: Works well with temperature 0.7 to filter out low-probability tokens that could derail coherence.
+- **Max tokens 512**: Most QA answers fit in 200-400 tokens; 512 gives headroom without runaway generation.
+
+**Trade-offs**:
+- Higher temperature can cause hallucinations or drifting from source material
+- Lower max_tokens may truncate complex multi-part answers
+- These are heuristics; optimal values depend on your specific KB and questions
+
+**Future work**: Add streaming support for better UX on longer responses.
+
+### Retrieval: top_k=4, score_threshold=0.3
+
+**Decision**: Retrieve 4 chunks by default with a minimum similarity threshold of 0.3.
+
+**Rationale**:
+- **top_k=4**: Provides enough context without overwhelming the LLM's context window. Most questions are answered by 2-3 relevant chunks.
+- **score_threshold=0.3**: Filters out poor matches. Cosine similarity below 0.3 typically indicates weak relevance.
+
+**Trade-offs**:
+- Higher k provides more context but includes less relevant chunks
+- Threshold too high may miss partial matches; too low allows noise
+
 ---
 
-*Last updated: Initial project setup*
+*Last updated: Block 4 - Ollama setup and LLM parameters*
