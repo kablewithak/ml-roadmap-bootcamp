@@ -1,0 +1,64 @@
+{
+  "total_lines": 400,
+  "total_patterns": 2,
+  "daily_history": [
+    {
+      "file_path": "database/models.py",
+      "lines_start": 1,
+      "lines_end": 250,
+      "lines_count": 250,
+      "component": "payment_persistence",
+      "pattern": "uuid_primary_keys",
+      "comprehension_level": "mastered",
+      "business_value": 12500.0,
+      "notes": "Zone 1 Imports: Standard lib first (UUID/Datetime). Zone 2: SQLAlchemy types. Crucial distinction: Integer for money (cents), never Float. Used UUIDs for IDs to hide business volume from competitors.",
+      "questions": [
+        "Why not just reconstruct the response from DB columns?",
+        "Why is Float bad for money?"
+      ],
+      "insights": [
+        "UUIDs prevent ID enumeration attacks (competitors guessing volume).",
+        "Floats cause floating-point drift; Integers are exact.",
+        "JSON columns allow storing 'Response Snapshots' for idempotency."
+      ],
+      "failure_modes": [
+        "Using Float for billing results in $0.01 errors that compound.",
+        "Integer overflow (if not BigInt) for massive currencies."
+      ],
+      "optimizations": [
+        "Store metadata as JSONB for schema-less flexibility."
+      ],
+      "timestamp": "2025-12-18T00:40:39.098465"
+    },
+    {
+      "file_path": "core/idempotency.py",
+      "lines_start": 251,
+      "lines_end": 400,
+      "lines_count": 150,
+      "component": "distributed_locking",
+      "pattern": "redis_setnx",
+      "comprehension_level": "mastered",
+      "business_value": 50000.0,
+      "notes": "Redis used as small object storage for locks. Implemented SETNX (Set if Not Exists) to prevent double-charging.",
+      "questions": [
+        "What happens if Redis dies?",
+        "Why not use Postgres Advisory Locks?"
+      ],
+      "insights": [
+        "Idempotency Key must be unique per request (client-generated).",
+        "TTL (Time To Live) is mandatory to prevent deadlocks if worker crashes.",
+        "Files can't get corrupted; Redis handles atomic operations."
+      ],
+      "failure_modes": [
+        "Redis memory full -> Eviction policy deletes locks -> Double charges.",
+        "Network partition between App and Redis."
+      ],
+      "optimizations": [
+        "Use Lua scripts to make Check-And-Set atomic."
+      ],
+      "timestamp": "2025-12-18T00:40:39.099995"
+    }
+  ],
+  "patterns_learned": [],
+  "start_date": "2025-12-18T00:00:00"
+}
