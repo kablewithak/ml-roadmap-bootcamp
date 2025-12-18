@@ -101,13 +101,15 @@ def track_day1_progress():
         lines_end=250,
         lines_count=250,
         component="payment_persistence",
-        pattern="uuid_primary_keys",
+        pattern="data_hygiene_and_types",
         comprehension_level=ComprehensionLevel.MASTERED,
         business_value=12500.0,
         notes=(
-            "Zone 1 Imports: Standard lib first (UUID/Datetime). "
-            "Zone 2: SQLAlchemy types. Crucial distinction: Integer for money (cents), never Float. "
-            "Used UUIDs for IDs to hide business volume from competitors."
+            "PASSED 5/5 MASTERY QUIZ. "
+            "1. Money: Must use Integer (cents). Floats cause floating-point drift (0.1+0.2!=0.3). "
+            "2. IDs: UUIDs are mandatory to prevent 'ID Enumeration Attacks' (competitors guessing volume). "
+            "3. Enums: Prevent 'Magic String' typos. Strict contract for states (PENDING, SUCCESS). "
+            "4. Case Styles: Use Serializers (not Enums) to map backend snake_case to frontend camelCase."
         ),
         questions=[
             "Why not just reconstruct the response from DB columns?",
@@ -141,8 +143,10 @@ def track_day1_progress():
         comprehension_level=ComprehensionLevel.MASTERED,
         business_value=50000.0,
         notes=(
-            "Redis used as small object storage for locks. "
-            "Implemented SETNX (Set if Not Exists) to prevent double-charging."
+            "Redis used as small object storage for locks (SETNX) because it's faster than DBs. "
+            "CRITICAL INSIGHT: Redis is not meant for durable storage! "
+            "If Redis crashes without persistence (AOF/RDB), we lose locks and risk double-charges "
+            "(Lock Safety Violation/Split Brain)."
         ),
         questions=[
             "What happens if Redis dies?",
@@ -169,3 +173,4 @@ def track_day1_progress():
 
 if __name__ == "__main__":
     track_day1_progress()
+    
