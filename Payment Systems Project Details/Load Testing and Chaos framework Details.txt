@@ -1,0 +1,231 @@
+I am building production ML systems to develop senior-level engineering competence, 
+not just to have working code. Your role is to be a Socratic teacher, not just a 
+code generator.
+
+## Core Principles
+
+1. **EXPLANATION BEFORE CODE**: For any complex pattern, explain the "why" before 
+   the "what"
+2. **TRADE-OFFS EXPLICIT**: Every architectural decision has alternatives. Tell me 
+   what you chose and why
+3. **FAILURE MODES**: For every pattern, show me how it fails and why that matters
+4. **BUSINESS IMPACT**: Connect every technical decision to dollars/risk/reliability
+5. **LEARNING CHECKPOINTS**: After generating code, ask ME to explain it back
+
+## Generation Format
+
+When I request code generation, structure your response as:
+
+### 1. CONTEXT (Before any code)
+- What problem does this solve?
+- What's the business impact of solving it poorly?
+- What are the 2-3 alternative approaches?
+- Why is this approach best for production systems?
+
+### 2. ARCHITECTURE DECISION RECORD
+- What pattern are you using? (e.g., "Transactional Outbox Pattern")
+- Why this pattern vs alternatives?
+- What are the trade-offs?
+- When would this pattern be the WRONG choice?
+
+### 3. CODE (with inline explanations)
+- Generate code with extensive comments explaining WHY, not just WHAT
+- Mark critical sections with "CRITICAL:" comments
+- Flag areas where business logic should be customized
+
+### 4. FAILURE SCENARIOS
+- How does this break?
+- What happens when [database/network/service] fails?
+- What are the edge cases I should test?
+- What metrics should I monitor to detect failures?
+
+### 5. BUSINESS IMPACT ANALYSIS
+- What's the cost of getting this wrong? (in dollars or customer impact)
+- What metrics prove this is working?
+- How does this scale? (cost/performance curves)
+- What's the ROI of building this vs simpler alternatives?
+
+### 6. LEARNING VERIFICATION
+Ask me 3 questions to verify I understand:
+- One conceptual question (do I understand the pattern?)
+- One debugging question (how would I fix X failure?)
+- One business question (why does this matter?)
+
+## My Learning Commitment
+
+After you generate code, I will:
+1. Read and attempt to explain it back to you
+2. Modify something intentionally to see what breaks
+3. Ask clarifying questions about anything I don't understand
+4. Connect the technical implementation to business outcomes
+
+## Red Flags to Call Out
+
+If you detect I'm:
+- Copying code without understanding → STOP and quiz me
+- Moving too fast without testing → WARN me
+- Missing critical edge cases → HIGHLIGHT them
+- Not connecting to business impact → REMIND me
+
+Let's begin. I'm ready to learn deeply, not just ship quickly.
+Load Testing & Chaos Engineering
+
+Create a comprehensive load testing and chaos engineering framework:
+
+1. Load test harness:
+   - K6 or Locust scripts for payment API
+   - Configurable TPS (10, 100, 500, 1000+ requests/sec)
+   - Realistic payment data generation
+   - Latency percentile tracking (p50/p95/p99/p999)
+   - Error rate monitoring
+   - Concurrent user simulation
+
+2. Chaos engineering tests:
+   - Database failure injection
+   - Kafka broker failure
+   - Network latency injection
+   - Process crash mid-transaction
+   - Disk full simulation
+   - Memory pressure testing
+
+3. Verification scripts:
+   - Zero loss verification (count all messages)
+   - Zero duplicate verification (check idempotency)
+   - Reconciliation verification (DB vs events)
+   - Data consistency checks
+
+4. Reporting:
+   - HTML report generator with charts
+   - CSV export of metrics
+   - Comparison reports (before/after optimization)
+
+Include:
+- Docker setup for consistent environment
+- Automated test suite runner
+- CI integration (GitHub Actions)
+What's Missing for Production Excellence:
+1. Load Testing & Chaos Engineering Gap ⚠️
+Your current plan mentions load testing but lacks:
+
+Real chaos engineering - Not just "kill a process" but sophisticated failure injection
+Performance regression prevention - Automated gates that block deployments
+Cost-per-transaction tracking - Business metrics, not just technical ones
+Distributed tracing - OpenTelemetry integration for debugging at scale
+
+2. Missing Production-Grade Components
+Observability Stack:
+What you need:
+- Distributed tracing (Jaeger/Zipkin)
+- Real-time alerting with PagerDuty integration
+- Business KPI dashboards (not just technical metrics)
+- Cost attribution per API call
+- Automated runbooks that actually fix issues
+Security Hardening:
+Critical gaps:
+- No rate limiting with token buckets
+- Missing API key rotation system
+- No PII tokenization layer
+- Absent security scanning in CI
+- No compliance automation (PCI-DSS, SOC2)
+3. Scale & Performance Improvements Needed
+Current: Local testing at 1000 TPS
+Production-Grade:
+
+Horizontal scaling with Kubernetes
+Multi-region deployment simulation
+Connection pooling optimization
+Database sharding strategy
+CDN integration for global latency
+
+4. The "Wow Factor" Additions
+Here's what would make recruiters stop scrolling:
+A. Self-Healing System:
+python# Not just monitoring, but automated recovery
+class SelfHealingOrchestrator:
+    def detect_anomaly(self):
+        # ML-based anomaly detection
+    def diagnose_issue(self):
+        # Root cause analysis
+    def execute_remediation(self):
+        # Automated fix without human intervention
+    def verify_recovery(self):
+        # Confirm system health restored
+B. Financial Impact Dashboard:
+
+Real-time P&L per transaction
+Fraud prevention savings counter
+Downtime cost calculator
+A/B test revenue impact
+
+C. "Production War Stories" Simulator:
+Build scenarios based on real incidents:
+
+Black Friday traffic spike (10x normal)
+Coordinated fraud attack simulation
+Database failover during peak hours
+Memory leak under sustained load
+
+5. The Load Testing Framework You ACTUALLY Need
+Your current K6/Locust plan is basic. Here's production-grade:
+yamlProduction Load Testing Suite:
+  1. Graduated Load Patterns:
+     - Spike testing (0 → 10,000 TPS in 30 seconds)
+     - Soak testing (48 hours at 80% capacity)
+     - Stress testing (find breaking point)
+     - Chaos under load (failures during peak)
+  
+  2. Business Scenario Testing:
+     - Black Friday simulation
+     - Month-end reconciliation load
+     - Regulatory reporting deadlines
+     - Multi-tenant isolation under stress
+  
+  3. Advanced Chaos:
+     - Byzantine failures
+     - Clock skew injection
+     - Partial network partitions
+     - Cascading failure chains
+     
+  4. Verification Beyond Basics:
+     - Transaction ordering preservation
+     - Eventual consistency windows
+     - Compensation transaction accuracy
+     - Audit trail completeness under failure
+My Recommendation: The 3 MUST-HAVE Improvements
+If you can only add three things to truly impress:
+1. Cost-Aware Auto-Scaling:
+python# This shows business thinking
+class CostOptimizedScaler:
+    def calculate_transaction_cost(self):
+        # Include AWS costs, engineering time, opportunity cost
+    def predict_load_pattern(self):
+        # ML-based traffic prediction
+    def optimize_resource_allocation(self):
+        # Balance performance vs. cost
+2. Incident Command System:
+yaml# Shows you've handled real production issues
+Automated Incident Response:
+  - Severity classification (ML-based)
+  - Stakeholder notification matrix
+  - Automated war room creation
+  - Recovery time tracking
+  - Post-mortem generation
+  - Financial impact calculation
+```
+
+**3. The "10x Better" Proof:**
+```
+Benchmark Suite:
+  - Your system vs. Stripe (latency, reliability)
+  - Your system vs. vanilla implementation (10x faster)
+  - Cost comparison (50% cheaper than alternatives)
+  - Recovery time (5x faster than industry standard)
+The Brutal Truth:
+Your current project would get you a $70-90k junior role. To hit $180k+, you need to demonstrate you've handled:
+
+Real money (even if simulated, the math must be bulletproof)
+Real scale (millions of transactions, not thousands)
+Real failures (sophisticated chaos, not basic testing)
+Real business impact (dollars saved/earned, not just "it works")
+
+The load testing & chaos engineering framework in your prompt is a good start, but it needs to be elevated to include business metrics, self-healing capabilities, and production war stories that show you've been in the trenches.

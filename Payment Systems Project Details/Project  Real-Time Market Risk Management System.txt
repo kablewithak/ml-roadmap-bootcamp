@@ -1,0 +1,142 @@
+Real-Time Market Risk Management System with Liquidity-Adjusted VaR and Regime Detection
+Why This Project:
+This project is strategically chosen because it demonstrates your ability to build systems that major banks and hedge funds actually use. It combines your streaming infrastructure skills with advanced financial risk modeling that goes beyond basic ML into the realm of quantitative finance. The real-time aspect leverages your week 3 streaming work, while the ML components build on your adversarial and adaptive modeling from week 4.
+Claude Code Prompt:
+
+  
+
+  
+Build a production-grade real-time market risk management system for a multi-asset portfolio that handles $500M+ AUM. The system must process tick-level market data, calculate liquidity-adjusted Value-at-Risk (VaR) using advanced techniques, detect market regime changes in real-time, and automatically adjust portfolio positions based on risk limits.
+
+Technical Requirements:
+1. MARKET DATA INGESTION & PROCESSING:
+- Ingest real-time tick data from multiple exchanges (equities, futures, options, FX)
+- Handle 500,000+ market events per second with sub-millisecond latency
+- Implement order book reconstruction with proper sequencing and replay capabilities
+- Build a time-series database optimized for tick data (TimescaleDB or Arctic)
+- Create market microstructure features: bid-ask spread dynamics, order flow imbalance, trade intensity
+
+2. ADVANCED RISK CALCULATIONS:
+- Implement Liquidity-Adjusted VaR (L-VaR) considering:
+  * Bid-ask spreads under stressed conditions
+  * Market impact models (Almgren-Chriss framework)
+  * Funding liquidity risk
+  * Intraday liquidity patterns
+- Calculate Component VaR (CVaR) and Marginal VaR (MVaR)
+- Implement Expected Shortfall (ES) with proper backtesting
+- Build Monte Carlo simulation engine with:
+  * Filtered Historical Simulation (FHS)
+  * GARCH volatility modeling
+  * Copula-based dependency structures
+- Real-time Greeks calculation for options portfolios
+
+3. MARKET REGIME DETECTION ML SYSTEM:
+- Implement Hidden Markov Models (HMM) for regime identification
+- Build ensemble of models:
+  * Markov-switching GARCH
+  * Dynamic Factor Models
+  * Change point detection using CUSUM/MOSUM
+  * Deep learning LSTM for pattern recognition
+- Features engineering:
+  * Cross-asset correlations (rolling, EWMA, DCC-GARCH)
+  * Term structure dynamics
+  * Options-implied information (skew, term structure of IV)
+  * Macro factor exposures
+- Real-time regime probability updates with Kalman filtering
+
+4. PORTFOLIO OPTIMIZATION ENGINE:
+- Implement Black-Litterman with regime-dependent views
+- Build risk parity optimization with leverage constraints
+- Create dynamic hedging system:
+  * Delta-hedging for options
+  * Beta-hedging for equity portfolios
+  * Duration/convexity hedging for fixed income
+- Transaction cost optimization using Markowitz with market impact
+
+5. POSITION & RISK LIMIT MANAGEMENT:
+- Real-time position limit monitoring with kill switches
+- VaR-based position sizing with Kelly criterion adjustments
+- Implement risk budgeting across strategies/traders
+- Automatic position reduction when approaching limits
+- Margin requirement calculations (SPAN, TIMS methodologies)
+
+6. STRESS TESTING & SCENARIO ANALYSIS:
+- Historical stress scenarios (2008, COVID, SVB collapse)
+- Reverse stress testing to find portfolio breaking points
+- Sensitivity analysis across factors
+- Liquidity stress testing with redemption scenarios
+- Climate risk scenarios for ESG compliance
+
+7. PRODUCTION INFRASTRUCTURE:
+- Distributed compute using Ray/Dask for parallel risk calculations
+- Redis for real-time risk cache with TTL management
+- Apache Pulsar for event streaming with exactly-once semantics
+- Grafana dashboards with:
+  * Real-time P&L and risk metrics
+  * Regime probability visualization
+  * Limit utilization heatmaps
+  * Alert system for breach warnings
+- Circuit breakers for extreme market conditions
+- Hot-standby disaster recovery with <30 second RTO
+
+8. REGULATORY COMPLIANCE:
+- FRTB compliance calculations
+- BCBS 239 risk data aggregation
+- MiFID II transaction reporting integration
+- Generate regulatory reports (CFTC, SEC, ESMA formats)
+
+9. BACKTESTING & VALIDATION:
+- VaR backtesting with Kupiec and Christoffersen tests
+- Model validation framework with:
+  * Out-of-sample testing
+  * Rolling window analysis
+  * Benchmark model comparisons
+- P&L attribution and explanation
+- Model performance monitoring with drift detection
+
+10. ADVANCED FEATURES:
+- Implement Hawkes processes for clustering risk modeling
+- Build contagion risk models using network analysis
+- Create synthetic data generation using GANs for stress testing
+- Quantum-inspired optimization for large portfolios
+- Explainable AI for risk model decisions (SHAP/LIME)
+
+DELIVERABLES:
+- Full system handling 10,000+ instruments across 5 asset classes
+- Risk calculations updating every 100ms for liquid instruments
+- Regime detection with 85%+ accuracy on out-of-sample data
+- Demonstrable prevention of $10M+ losses through risk limits
+- Complete documentation with mathematical foundations
+- Video demonstration of system handling Flash Crash scenario
+- Business case showing 40% reduction in risk capital requirements
+
+Performance benchmarks:
+- Risk calculation latency: p99 < 50ms
+- Regime detection lag: < 5 seconds from market event
+- System uptime: 99.99% availability
+- Backtesting accuracy: VaR violations within 1% confidence interval
+- Cost: < $50k/month infrastructure for $500M AUM
+
+Create unit tests, integration tests, and chaos engineering scenarios. Include detailed comments explaining financial concepts and regulatory requirements. Build this iteratively, starting with basic VaR and adding sophistication.
+What Makes This Out of Reach (Week 12):
+
+Quantitative Finance Depth: Requires understanding of advanced risk metrics, market microstructure theory, and regulatory frameworks you haven't encountered yet
+Mathematical Complexity: Copulas, Kalman filtering, and GARCH models require graduate-level statistics
+System Integration: Coordinating 10+ different components in real-time is exponentially harder than your current projects
+Domain Expertise: Understanding liquidity dynamics, regime characteristics, and stress scenarios requires real market experience
+
+What You'll Learn:
+
+How billion-dollar funds actually measure and manage risk
+Market microstructure and high-frequency data processing
+Advanced time-series modeling and regime detection
+Regulatory compliance and reporting requirements
+Large-scale distributed computing for financial calculations
+
+Signal to Hiring Managers:
+
+Seniority: This is staff/principal engineer or VP-level work at banks
+Quantitative Skills: Shows you can handle the math that intimidates most engineers
+Production Readiness: Demonstrates understanding of real financial system requirements
+Risk Awareness: Proves you understand the business, not just the technology
+Regulatory Knowledge: Shows you can navigate complex compliance requirements

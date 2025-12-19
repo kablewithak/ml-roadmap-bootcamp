@@ -1,0 +1,226 @@
+Project 2: Alternative Data Alpha Generation Platform with Explainable Deep Learning
+Why This Project:
+This showcases the cutting edge of quantitative investing - using alternative data sources (satellite imagery, NLP on earnings calls, web scraping) combined with interpretable ML to generate alpha. It's what Renaissance Technologies, Two Sigma, and other top quant funds are actually doing. This extends your ML skills into unstructured data and requires building a complete research-to-production pipeline.
+Claude Code Prompt:
+
+  
+
+  
+Build a production alternative data alpha generation platform that discovers and trades market inefficiencies using non-traditional data sources. The system must ingest diverse alternative datasets, engineer predictive features using deep learning, generate interpretable trading signals, and execute strategies with proper risk management.
+
+Technical Requirements:
+
+1. ALTERNATIVE DATA INGESTION PIPELINE:
+- Satellite imagery processing for economic activity:
+  * Car counting in retail parking lots (Walmart, Target)
+  * Oil storage tank shadows for inventory estimation
+  * Ship tracking for supply chain analysis
+  * Agricultural yield prediction from crop imagery
+  * Use computer vision models (YOLOv8, Detectron2)
+  * Handle 100GB+ daily imagery with distributed processing
+
+- Natural Language Processing on financial documents:
+  * Earnings call transcripts sentiment analysis
+  * SEC filings parsing (10-K, 10-Q, 8-K)
+  * Patent filings for R&D momentum
+  * Management guidance extraction
+  * Implement FinBERT and custom transformers
+  * Track linguistic complexity and deception patterns
+
+- Web scraping and social data:
+  * Product reviews and ratings aggregation
+  * Job postings for hiring momentum
+  * App store rankings and download estimates
+  * Reddit/Twitter sentiment with bot detection
+  * Employee satisfaction from Glassdoor
+  * Build rotating proxy infrastructure
+  * Implement anti-detection measures
+
+- Credit card and transaction data:
+  * Consumer spending patterns by sector
+  * Brand switching detection
+  * Seasonal adjustment models
+  * Geographic expansion tracking
+
+2. FEATURE ENGINEERING WITH DEEP LEARNING:
+- Multi-modal fusion networks:
+  * Combine text, image, and structured data
+  * Attention mechanisms for feature importance
+  * Cross-modal transformers
+  * Temporal convolutional networks for sequences
+
+- Graph neural networks for relationships:
+  * Supply chain networks from shipping data
+  * Board member connections influence
+  * Patent citation networks
+  * Customer-supplier relationships
+
+- Unsupervised representation learning:
+  * Autoencoders for anomaly detection
+  * VAEs for generating synthetic scenarios
+  * Contrastive learning for similarity
+  * Self-supervised pretraining on financial data
+
+3. ALPHA SIGNAL GENERATION:
+- Ensemble prediction system:
+  * Gradient boosting (XGBoost, LightGBM, CatBoost)
+  * Deep neural networks with dropout
+  * Gaussian processes for uncertainty
+  * Online learning with river/creme
+  * Meta-learning for fast adaptation
+
+- Signal combination and portfolio construction:
+  * Information coefficient (IC) weighting
+  * Principal component regression
+  * LASSO for feature selection
+  * Hierarchical risk parity
+  * Mean-variance optimization with constraints
+
+- Alternative risk premia extraction:
+  * Momentum factors from alternative data
+  * Value signals from satellite imagery
+  * Quality metrics from NLP
+  * Low volatility from social sentiment
+
+4. EXPLAINABLE AI & INTERPRETABILITY:
+- SHAP values for feature attribution
+- LIME for local explanations
+- Attention visualization for transformers
+- Counterfactual explanations
+- Partial dependence plots
+- Build "glass box" models:
+  * Interpretable neural networks (NAM)
+  * Rule extraction from black box models
+  * Symbolic regression for formula discovery
+- Generate human-readable signal explanations
+
+5. BACKTESTING & SIMULATION ENGINE:
+- Event-driven backtesting framework:
+  * Realistic order execution simulation
+  * Market impact modeling (linear/square-root/Almgren-Chriss)
+  * Slippage and commission modeling
+  * Multi-asset and cross-border considerations
+
+- Walk-forward optimization:
+  * Combinatorial purged cross-validation
+  * Embargo periods for data leakage prevention
+  * Deflated Sharpe ratio calculations
+  * Multiple testing correction (FDR)
+
+- Monte Carlo simulations:
+  * Parameter uncertainty modeling
+  * Regime-dependent returns
+  * Stress testing with historical scenarios
+  * Bootstrap confidence intervals
+
+6. REAL-TIME TRADING SYSTEM:
+- Signal generation pipeline:
+  * Streaming feature computation
+  * Model inference with <10ms latency
+  * Signal aggregation and filtering
+  * Position sizing with Kelly criterion
+
+- Order management system:
+  * Smart order routing
+  * VWAP/TWAP execution algorithms
+  * Dark pool access
+  * Parent-child order tracking
+  * FIX protocol implementation
+
+- Risk management:
+  * Real-time P&L calculation
+  * Position limits and stop losses
+  * Correlation-based hedging
+  * Drawdown controls
+  * Exposure limits by factor
+
+7. MODEL GOVERNANCE & MONITORING:
+- Model versioning with DVC/MLflow
+- A/B testing framework for strategies
+- Champion/challenger setup
+- Model decay detection:
+  * PSI/CSI for distribution shifts
+  * Prediction accuracy monitoring
+  * Feature importance stability
+  * Adversarial validation
+
+- Automated retraining pipeline:
+  * Incremental learning
+  * Transfer learning from related tasks
+  * Hyperparameter optimization (Optuna)
+  * Ensemble weight updates
+
+8. DATA QUALITY & VALIDATION:
+- Anomaly detection in data feeds
+- Cross-source validation
+- Point-in-time data alignment
+- Survivorship bias detection
+- Look-ahead bias prevention
+- Missing data imputation strategies
+- Data versioning and lineage tracking
+
+9. INFRASTRUCTURE & SCALING:
+- Kubernetes for container orchestration
+- Apache Airflow for pipeline scheduling
+- Spark/Dask for distributed computing
+- Delta Lake for data versioning
+- Ray for distributed ML training
+- Feature store (Feast/Tecton) for real-time serving
+- Model registry with staging/production
+- Cost optimization with spot instances
+
+10. COMPLIANCE & REPORTING:
+- Trade surveillance for market manipulation
+- Best execution analysis
+- Position reporting to regulators
+- Audit trail for all decisions
+- GDPR compliance for data handling
+- Research documentation standards
+- Performance attribution reporting
+
+DELIVERABLES:
+- Platform processing 50+ alternative data sources
+- 100+ alpha signals with IC > 0.05
+- Sharpe ratio > 2.0 after transaction costs
+- Model explanations for every trade
+- Real-time dashboard showing:
+  * Signal generation pipeline status
+  * Current positions and P&L
+  * Feature importance evolution
+  * Data quality metrics
+- Backtesting showing 15%+ annual returns with max drawdown < 10%
+- Complete documentation of alpha research process
+- Jupyter notebooks for strategy development
+- Business case for $100M+ AUM deployment
+
+Performance Requirements:
+- Feature computation: < 1 second for all sources
+- Signal generation: < 100ms per security  
+- Daily data processing: 1TB+ alternative data
+- Model retraining: < 4 hours for full pipeline
+- System uptime: 99.95% availability
+- Alpha decay: < 10% monthly degradation
+
+Build incrementally: Start with single data source (satellite), add NLP, then integrate multi-modal learning. Include comprehensive tests and monitoring.
+What Makes This Out of Reach (Week 12):
+
+Data Complexity: Working with satellite imagery, NLP, and unstructured data requires specialized knowledge you haven't developed
+Mathematical Sophistication: Information theory, signal processing, and advanced portfolio optimization
+Infrastructure Scale: Managing 50+ data sources and 1TB+ daily processing
+Domain Knowledge: Understanding market microstructure, alpha decay, and systematic trading strategies
+
+What You'll Learn:
+
+How top quant funds actually find alpha in 2025
+Computer vision and NLP applications in finance
+Multi-modal machine learning architectures
+Explainable AI techniques crucial for investment decisions
+Building research platforms that scale to billions in AUM
+
+Signal to Hiring Managers:
+
+Innovation: Shows you're working on cutting-edge quant finance problems
+Full-Stack ML: Demonstrates end-to-end ML system design capabilities
+Business Acumen: Proves you understand alpha generation, not just model building
+Research Skills: Shows you can discover new signals, not just implement known strategies
+Scale: Demonstrates ability to handle institutional-grade systems

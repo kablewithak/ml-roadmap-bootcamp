@@ -1,0 +1,50 @@
+Prompt to Claude Code:
+Build adversarial ML system for fraud detection:
+
+1. Attack simulator:
+   - 10 realistic attack patterns:
+     * Card testing (test 1000 cards with $1 each)
+     * Account takeover chain (login → change email → purchase)
+     * Velocity evasion (stay under limits)
+     * Synthetic identity (fake person, real SSN pattern)
+     * Device rotation attack
+     * IP rotation via proxies
+     * Blend attack (mix with legitimate traffic)
+     * Slow burn attack (low volume over time)
+     * BIN attack (test card number ranges)
+     * Gift card cashout chain
+   
+2. Each pattern includes:
+   - Realistic timing (not all at once)
+   - Adaptive behavior (learn from blocks)
+   - Success metrics
+   - Historical loss estimation
+
+3. Adversarial learning:
+   - RL agent that learns from defense responses
+   - Strategy evolution based on success rate
+   - Attack campaign simulator (multi-day)
+
+4. Defense system:
+   - Adversarially robust ML model training
+   - Feature engineering resistant to gaming
+   - Online learning with poisoning detection
+   - Ensemble defense (rules + ML + graph)
+
+5. Graph-based fraud detection:
+   - Build transaction graph (NetworkX)
+   - Community detection for fraud rings
+   - Shortest path to known fraud
+   - Graph-based features for ML
+
+6. Evaluation framework:
+   - Attack success rate over time
+   - Defense degradation measurement
+   - ROC curves under adversarial conditions
+   - Cost analysis (prevented vs cost of defense)
+
+Include:
+- Comprehensive test suite
+- Visualization of attack patterns
+- Defense effectiveness reports
+- Open-source ready structure

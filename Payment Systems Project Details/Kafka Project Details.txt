@@ -1,0 +1,217 @@
+Create a Kafka/Redpanda streaming infrastructure with exactly-once semantics:
+
+Producer with:
+
+High-throughput configuration (100k+ msg/sec)
+Idempotent producer settings
+Batching and compression
+Async send with callback handling
+Error recovery and retry logic
+Consumer with:
+
+Exactly-once processing (transactional consumption)
+Manual offset management
+Graceful shutdown handling
+Consumer group rebalancing
+Dead letter queue for poison messages
+Event schemas:
+
+PaymentEvent (Avro schema)
+FraudDecisionEvent
+UserActionEvent
+Schema registry integration
+Testing infrastructure:
+
+Event generator (configurable TPS)
+Chaos testing (kill brokers, consumers)
+Exactly-once verification tests
+Latency measurement (p50/p95/p99)
+Monitoring:
+
+Consumer lag metrics
+Throughput metrics
+Error rate tracking
+Offset commit metrics
+Project structure: /streaming/ ├── core/ │ ├── producer.py │ ├── consumer.py │ ├── exactly_once.py │ └── schemas.py ├── tests/ │ ├── test_exactly_once.py │ ├── test_throughput.py │ └── chaos_tests.py ├── monitoring/ │ └── metrics.py ├── docker/ │ └── docker-compose.yml (Redpanda cluster) └── examples/ └── end_to_end_example.py
+
+Include comprehensive documentation in docstrings. Add failure scenario handling (network partition, broker failure, etc.) Your current design lacks critical state management and recovery mechanisms. Here's what to add: python# /streaming/core/state_manager.py class TransactionalStateManager: """ Production requirement: Maintain consistency across Kafka + Database Problem: Kafka commit succeeds but DB write fails = inconsistent state Solution: Two-phase commit pattern with saga compensation """
+
+def __init__(self):
+    self.rocksdb = RocksDB()  # Local state for recovery
+    self.postgres = PostgresConnection()
+    self.kafka_producer = TransactionalProducer()
+
+async def process_with_exactly_once(self, message):
+    # Begin distributed transaction
+    tx_id = uuid4()
+    
+    try:
+        # Phase 1: Prepare
+        self.rocksdb.begin_transaction(tx_id)
+        self.postgres.begin_transaction(tx_id)
+        self.kafka_producer.begin_transaction()
+        
+        # Process business logic
+        result = await self.process_payment(message)
+        
+        # Phase 2: Commit (atomic across all systems)
+        await self.commit_all_or_rollback(tx_id)
+        
+    except Exception as e:
+        await self.compensate(tx_id, e)
+        raise
+2. Circuit Breaker and Backpressure Mechanisms Add production resilience patterns missing from your design: python# /streaming/core/resilience.py class StreamingCircuitBreaker: """ Prevents cascade failures when downstream systems fail Real scenario: Database goes down, 1M messages queue up, OOM crash """
+
+def __init__(self):
+    self.failure_threshold = 0.5  # 50% failure rate
+    self.recovery_timeout = timedelta(seconds=60)
+    self.state = CircuitState.CLOSED
+    
+async def call_with_circuit_breaker(self, func, *args):
+    if self.state == CircuitState.OPEN:
+        if self.should_attempt_reset():
+            self.state = CircuitState.HALF_OPEN
+        else:
+            raise CircuitBreakerOpenException()
+    
+    try:
+        result = await func(*args)
+        self.on_success()
+        return result
+    except Exception as e:
+        self.on_failure()
+        raise
+class AdaptiveBackpressure: """ Dynamically adjusts consumption rate based on processing capacity Prevents OOM and maintains SLAs """
+
+def __init__(self):
+    self.target_latency_ms = 100
+    self.current_rate = 10000  # msg/sec
+    
+async def adjust_consumption_rate(self, current_latency_p99):
+    if current_latency_p99 > self.target_latency_ms * 1.2:
+        self.current_rate *= 0.9  # Reduce by 10%
+        await self.consumer.pause_partitions()
+    elif current_latency_p99 < self.target_latency_ms * 0.8:
+        self.current_rate *= 1.1  # Increase by 10%
+3. Schema Evolution Strategy Critical for production - your schemas will change: python# /streaming/schemas/evolution.py class SchemaEvolutionManager: """ Handles backward/forward compatible schema changes Problem: Deploy new schema version, old consumers crash """
+
+def __init__(self):
+    self.registry = ConfluentSchemaRegistry()
+    
+def register_with_compatibility_check(self, schema):
+    # Check compatibility modes
+    compatibility_modes = [
+        'BACKWARD',      # New schema can read old data
+        'FORWARD',       # Old schema can read new data
+        'FULL',          # Both backward and forward
+        'BACKWARD_TRANSITIVE'  # All versions compatible
+    ]
+    
+    # Production strategy: Start with BACKWARD, move to FULL
+    return self.registry.register(
+        schema,
+        compatibility='BACKWARD_TRANSITIVE'
+    )
+4. Advanced Monitoring and Observability Beyond basic metrics - production needs deep observability: python# /streaming/monitoring/advanced_metrics.py class ProductionMetricsCollector: """ Tracks business-critical metrics beyond technical ones """
+
+def __init__(self):
+    self.prometheus = PrometheusClient()
+    self.business_metrics = BusinessMetricsDB()
+
+async def track_payment_processing(self, event):
+    # Technical metrics
+    self.prometheus.histogram('kafka_processing_latency_ms').observe(
+        event.processing_time_ms
+    )
+    
+    # Business metrics (what actually matters)
+    if event.payment_amount > 10000:  # High-value transaction
+        self.prometheus.counter('high_value_transactions').inc()
+        
+    # Track money flow
+    self.business_metrics.increment_daily_volume(
+        event.payment_amount,
+        event.currency
+    )
+    
+    # Fraud detection effectiveness
+    if event.fraud_score > 0.8 and not event.blocked:
+        self.prometheus.counter('high_risk_approved').inc()
+        # This is a potential loss event - track carefully
+5. Comprehensive Testing Strategy Your chaos testing needs to be more sophisticated: python# /streaming/tests/production_scenarios.py class ProductionScenarioTests: """ Test real production failure modes, not just happy paths """
+
+@pytest.mark.production_critical
+async def test_poison_pill_recovery(self):
+    """
+    Scenario: Malformed message crashes all consumers
+    Real impact: Entire payment processing stops
+    """
+    # Inject poison message
+    await self.producer.send(create_poison_message())
+    
+    # Verify consumer doesn't crash
+    assert self.consumer.is_alive()
+    
+    # Verify message goes to DLQ
+    dlq_message = await self.dlq_consumer.consume()
+    assert dlq_message.error_type == 'DESERIALIZATION_ERROR'
+    
+async def test_network_partition_during_rebalance(self):
+    """
+    Scenario: Network split during consumer group rebalance
+    Real impact: Duplicate processing, double charges
+    """
+    # Start rebalance
+    await self.add_consumer_to_group()
+    
+    # Simulate network partition mid-rebalance
+    await self.network.partition_consumer(duration_ms=5000)
+    
+    # Verify no duplicates processed
+    processed = await self.get_all_processed_messages()
+    assert len(processed) == len(set(processed))  # No duplicates
+6. Cost Optimization Layer Production systems need cost awareness: python# /streaming/optimization/cost_manager.py class StreamingCostOptimizer: """ Optimizes Kafka/cloud costs while maintaining SLAs Real savings: $50k/month at scale """
+
+def __init__(self):
+    self.metrics = MetricsCollector()
+    self.config = DynamicConfig()
+    
+async def optimize_partitions(self):
+    """
+    Right-size partitions based on actual load
+    Over-partitioning = wasted resources = $$$
+    """
+    current_throughput = await self.metrics.get_throughput()
+    optimal_partitions = math.ceil(current_throughput / 10000)  # 10k msg/partition
+    
+    if optimal_partitions < self.current_partitions * 0.7:
+        await self.reduce_partitions()
+        
+async def optimize_retention(self):
+    """
+    Adjust retention based on replay requirements
+    7 days of 100k msg/sec = 60GB = $500/month
+    """
+    replay_requirements = await self.get_replay_requirements()
+    
+    if replay_requirements < timedelta(hours=24):
+        await self.set_retention(hours=24)  # Save 6 days of storage
+
+### 7. **Enhanced Project Structure**
+/streaming/ ├── core/ │ ├── producer.py │ ├── consumer.py │ ├── exactly_once.py │ ├── state_manager.py # NEW: Distributed state management │ ├── resilience.py # NEW: Circuit breakers, backpressure │ └── schemas.py ├── optimization/ # NEW: Cost and performance optimization │ ├── cost_manager.py │ ├── partition_optimizer.py │ └── compression_analyzer.py ├── recovery/ # NEW: Disaster recovery │ ├── replay_manager.py │ ├── backup_consumer.py │ └── state_reconstructor.py ├── tests/ │ ├── test_exactly_once.py │ ├── test_throughput.py │ ├── chaos_tests.py │ ├── production_scenarios.py # NEW: Real failure modes │ └── cost_tests.py # NEW: Verify optimization works ├── monitoring/ │ ├── metrics.py │ ├── business_metrics.py # NEW: Track money flow │ └── alerting.py # NEW: PagerDuty integration ├── docker/ │ ├── docker-compose.yml │ └── docker-compose.prod.yml # NEW: Production config ├── terraform/ # NEW: Infrastructure as Code │ ├── kafka_cluster.tf │ └── monitoring.tf ├── docs/ # NEW: Production documentation │ ├── runbooks/ │ ├── architecture/ │ └── incident_reports/ └── examples/ ├── end_to_end_example.py └── production_deployment.py # NEW: How to deploy to prod 8. Integration with ML Pipeline Align with your broader ML roadmap: python# /streaming/ml_integration/feature_streaming.py class MLFeatureStreaming: """ Bridges streaming infrastructure with ML models This is where streaming meets your fraud/credit models """
+
+async def compute_streaming_features(self, event):
+    features = {
+        # Velocity features (critical for fraud)
+        'tx_count_5min': await self.redis.get(f"velocity:5m:{event.user_id}"),
+        'tx_amount_1hr': await self.redis.get(f"amount:1h:{event.user_id}"),
+        
+        # Pattern features
+        'unusual_time': self.is_unusual_time(event.timestamp, event.user_id),
+        'merchant_risk': await self.get_merchant_risk_score(event.merchant_id)
+    }
+    
+    # Stream to feature store for model serving
+    await self.feature_store.write_streaming_features(features)
+    
+    return features

@@ -68,6 +68,9 @@ class CodeMasteryCLI:
         if self.data_file.exists():
             with open(self.data_file, 'r') as f:
                 self.data = json.load(f)
+            # This is a "Schema Migration" on the fly
+            if "achievements" not in self.data:
+                self.data["achievements"] = []
         else:
             self.data = {
                 "total_lines": 0,

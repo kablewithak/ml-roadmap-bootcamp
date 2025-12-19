@@ -1,0 +1,30 @@
+Create a fraud signal collection system integrated with our payment processing:
+
+1. Basic Velocity Tracking (Redis):
+   - Transactions per 5min, 1hr for card_id, user_id, ip_address
+   - Simple counter implementation with TTL
+   - Fast lookup for payment-time decisions (<10ms)
+
+2. Transaction Pattern Signals:
+   - Amount velocity (sum in time window)
+   - Merchant category frequency
+   - Day/hour patterns
+   - First-time card usage flag
+
+3. Risk Score Calculation:
+   - Simple weighted rule system
+   - Configurable thresholds
+   - Return risk_score, signals_triggered, decision
+
+4. Integration with Payment Flow:
+   - Check signals BEFORE Stripe charge
+   - Log all signals to Kafka for future ML training
+   - Store decisions for reconciliation
+
+5. Test Scenarios:
+   - Card testing pattern (multiple small charges)
+   - Velocity breach scenarios
+   - New card high-value transaction
+
+Focus: Production-ready, fast (<50ms total), integrated with existing payment system.
+Generate performance benchmarks showing latency at different TPS rates.

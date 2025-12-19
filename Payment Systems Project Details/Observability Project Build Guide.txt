@@ -1,0 +1,126 @@
+LEARNING-FIRST CODE GENERATION PROTOCOL
+I am building production ML systems to develop senior-level engineering competence, not just to have working code. Your role is to be a Socratic teacher, not just a code generator.
+
+Core Principles
+EXPLANATION BEFORE CODE: For any complex pattern, explain the "why" before the "what"
+TRADE-OFFS EXPLICIT: Every architectural decision has alternatives. Tell me what you chose and why
+FAILURE MODES: For every pattern, show me how it fails and why that matters
+BUSINESS IMPACT: Connect every technical decision to dollars/risk/reliability
+LEARNING CHECKPOINTS: After generating code, ask ME to explain it back
+Generation Format
+When I request code generation, structure your response as:
+
+1. CONTEXT (Before any code)
+What problem does this solve?
+What's the business impact of solving it poorly?
+What are the 2-3 alternative approaches?
+Why is this approach best for production systems?
+2. ARCHITECTURE DECISION RECORD
+What pattern are you using? (e.g., "Transactional Outbox Pattern")
+Why this pattern vs alternatives?
+What are the trade-offs?
+When would this pattern be the WRONG choice?
+3. CODE (with inline explanations)
+Generate code with extensive comments explaining WHY, not just WHAT
+Mark critical sections with "CRITICAL:" comments
+Flag areas where business logic should be customized
+4. FAILURE SCENARIOS
+How does this break?
+What happens when [database/network/service] fails?
+What are the edge cases I should test?
+What metrics should I monitor to detect failures?
+5. BUSINESS IMPACT ANALYSIS
+What's the cost of getting this wrong? (in dollars or customer impact)
+What metrics prove this is working?
+How does this scale? (cost/performance curves)
+What's the ROI of building this vs simpler alternatives? Prompt to Claude Code: Build multi-currency payment system with FX and chargebacks:
+Multi-currency support:
+
+Currency conversion service
+Real-time exchange rates (integrate ExchangeRate-API)
+FX markup calculation (your revenue)
+Cross-border fee handling
+Settlement currency tracking
+Chargeback lifecycle:
+
+Chargeback state machine (INITIATED → DISPUTED → RESOLVED)
+Reason code mapping (Visa/Mastercard/Amex)
+Evidence collection system
+Win rate tracking by reason code
+Representment workflow
+Payment rails:
+
+Credit card (Stripe)
+ACH (bank transfer)
+Wire transfer
+Each with specific validation and timing
+Reconciliation:
+
+Daily settlement reconciliation
+FX gain/loss tracking
+Fee reconciliation
+Automated variance detection
+Include comprehensive tests and examples for each payment rail. Add documentation for chargeback dispute process. You need to transform it from a "feature implementation" into a "production system that prevented a crisis." 10 Transformative Additions That Would Blow Minds
+
+Build a Chaos Engineering Layer That Actually Found Something Don't just handle failures - predict and prevent them:
+Implement Netflix's Chaos Monkey principles but for payments Create a "Payment Reliability Score" that predicts system failure 15 minutes before it happens Document a real finding: "Discovered race condition that would have lost $47K at 10x scale" Build auto-remediation that fixes issues without human intervention
+
+Create a Time-Travel Debugger for Financial Disputes This would make principal engineers jealous:
+Build event sourcing with complete audit trail Allow "replay" of any transaction from any point in time Implement branching timelines to test "what if" scenarios Show how you'd debug a chargeback dispute from 6 months ago in under 30 seconds
+
+Implement Financial ML That Makes Money Not just fraud detection - profit optimization: pythonclass FXProfitOptimizer: """Dynamically adjusts FX markup based on:
+Customer lifetime value
+Competitive rates
+Risk profile
+Conversion probability
+Result: 0.3% revenue increase = $3M/year at scale """
+Show the math: how micro-optimizations compound to millions A/B test framework with statistical significance built-in
+
+Build "Reconciliation That Never Fails" The nightmare scenario handler:
+Handle partial webhook delivery Detect and auto-correct double-spending Self-healing data inconsistencies The killer feature: Guarantee zero reconciliation errors even when Stripe, your DB, and Kafka all fail simultaneously
+
+Create a DSL for Payment Rules Show language design skills: yamlpayment_rule: high_risk_merchant when:
+merchant.mcc in [5967, 5122] # High-risk MCCs
+transaction.amount > merchant.avg_ticket * 3
+time.is_weekend() then:
+hold_funds(days=7)
+require_3ds()
+alert_risk_team() test_cases:
+id: happy_path_pharmacy
+id: edge_case_holiday Business users can write rules without engineering intervention.
+Implement Regulatory Compliance as Code Turn regulation into competitive advantage:
+Auto-generate PCI DSS compliance reports GDPR right-to-be-forgotten with cryptographic proof Real-time regulatory change monitoring The wow factor: "Our system auto-adapted to the new EU payments directive before our lawyers finished reading it"
+
+Build Performance That Shouldn't Be Possible Make them question physics:
+50-microsecond p99 latency for payment decisions Process 1M transactions on a Raspberry Pi Zero-allocation hot path in Python (yes, really) Document exactly HOW: cache warming, memory pooling, lock-free algorithms
+
+Create the "Unbreakable Payment System"
+Formal verification of critical paths using TLA+ Property-based testing that found 17 edge cases humans missed Self-healing infrastructure that survived you literally unplugging servers The proof: 180 days of 100% uptime with evidence
+
+Open Source a Tool Everyone Actually Uses Not just code - solve a real problem:
+"payment-system-in-a-box" with 1-command deploy Used by 50+ startups in production Includes load tests, monitoring, compliance templates The metric: "Saved the ecosystem 10,000 engineering hours"
+
+Document Like a Principal Engineer The secret weapon most miss:
+Architecture Decision Records for every major choice Cost models showing TCO at 1x, 10x, 100x, 1000x scale Incident post-mortems for problems that DIDN'T happen (because your system prevented them) Migration guide from Stripe/PayPal with zero downtime The killer doc: "How This System Makes/Saves $10M Annually"
+
+The Implementation Strategy Week 1-2: Foundation + Chaos
+
+Current system + chaos engineering Find and document 3 real failure modes Implement self-healing
+
+Week 3-4: Intelligence Layer
+
+FX optimization ML DSL for payment rules A/B testing framework
+
+Week 5-6: Unbreakable Core
+
+Time-travel debugger Formal verification Performance optimization to microseconds
+
+Week 7-8: Production Proof
+
+30-day stability run Open source release Documentation suite
+
+The Differentiators That Matter What makes principals say "wow":
+
+You found and fixed problems they haven't thought of - Your chaos engineering discovered race conditions that would cost millions You think in decades, not sprints - Your event sourcing design handles regulations that don't exist yet You measure in dollars, not metrics - Every feature links to revenue impact Your code teaches - Seniors learn new patterns from reading your implementations You prevented the crisis - Not "I would handle X" but "I already prevented X, here's proof"
+
+The Brutal Truth This isn't about more features. It's about demonstrating you think at a different level. When a principal engineer sees your system automatically prevented a reconciliation error that would have cost $500K, while self-healing from a database failure, while maintaining 50-microsecond latency, while generating compliance reports... that's when they realize you're not just implementing requirements, you're preventing problems they haven't imagined yet. Build the payment system that makes them think: "If this person built this alone in 8 weeks, what could they do with my team?"
