@@ -1,5 +1,5 @@
 {
-  "total_lines": 550,
+  "total_lines": 750,
   "total_patterns": 5,
   "daily_history": [
     {
@@ -8,10 +8,10 @@
       "lines_end": 250,
       "lines_count": 250,
       "component": "payment_persistence",
-      "pattern": "uuid_primary_keys",
+      "pattern": "data_hygiene_and_types",
       "comprehension_level": "mastered",
       "business_value": 12500.0,
-      "notes": "Zone 1 Imports: Standard lib first (UUID/Datetime). Zone 2: SQLAlchemy types. Crucial distinction: Integer for money (cents), never Float. Used UUIDs for IDs to hide business volume from competitors.",
+      "notes": "PASSED 5/5 MASTERY QUIZ. 1. Money: Must use Integer (cents). Floats cause floating-point drift (0.1+0.2!=0.3). 2. IDs: UUIDs are mandatory to prevent 'ID Enumeration Attacks' (competitors guessing volume). 3. Enums: Prevent 'Magic String' typos. Strict contract for states (PENDING, SUCCESS). 4. Case Styles: Use Serializers (not Enums) to map backend snake_case to frontend camelCase.",
       "questions": [
         "Why not just reconstruct the response from DB columns?",
         "Why is Float bad for money?"
@@ -28,18 +28,18 @@
       "optimizations": [
         "Store metadata as JSONB for schema-less flexibility."
       ],
-      "timestamp": "2025-12-18T00:40:39.098465"
+      "timestamp": "2025-12-20T18:54:46.566600"
     },
     {
-      "file_path": "core/idempotency.py",
-      "lines_start": 251,
-      "lines_end": 400,
+      "file_path": "C:\\Users\\kabom\\Documents\\Machine Learning\\Machine Learning Workspace\\ml-roadmap-bootcamp\\..\\stripe-payments-gateway\\core\\idempotency.py",
+      "lines_start": 1,
+      "lines_end": 150,
       "lines_count": 150,
       "component": "distributed_locking",
       "pattern": "redis_setnx",
       "comprehension_level": "mastered",
       "business_value": 50000.0,
-      "notes": "Redis used as small object storage for locks. Implemented SETNX (Set if Not Exists) to prevent double-charging.",
+      "notes": "Redis used as small object storage for locks (SETNX) because it's faster than DBs. CRITICAL INSIGHT: Redis is not meant for durable storage! If Redis crashes without persistence (AOF/RDB), we lose locks and risk double-charges (Lock Safety Violation/Split Brain).",
       "questions": [
         "What happens if Redis dies?",
         "Why not use Postgres Advisory Locks?"
@@ -56,28 +56,90 @@
       "optimizations": [
         "Use Lua scripts to make Check-And-Set atomic."
       ],
-      "timestamp": "2025-12-18T00:40:39.099995"
+      "timestamp": "2025-12-20T18:54:46.567950"
     },
     {
-      "date": "2025-12-19T23:53:07.431638",
-      "lines": 150,
-      "patterns": [
-        "Idempotency",
-        "Atomic Locks",
-        "Time To Live"
+      "file_path": "database/connection.py",
+      "lines_start": 1,
+      "lines_end": 100,
+      "lines_count": 100,
+      "component": "database_engine",
+      "pattern": "async_connection_pool",
+      "comprehension_level": "mastered",
+      "business_value": 150000.0,
+      "notes": "Mastered Async SQLAlchemy engine configuration...",
+      "questions": [
+        "What happens to User 16?",
+        "Why yield pauses?"
       ],
-      "insights": "These systems asssume you aren't watching, they have rules set that trust nothing except the right response/process/logic",
-      "total_so_far": 550
+      "insights": [
+        "Pooling treats DB connections like reusable resources."
+      ],
+      "failure_modes": [
+        "Thundering Herd",
+        "Pool Exhaustion"
+      ],
+      "optimizations": [
+        "Move DB migrations to Job"
+      ],
+      "timestamp": "2025-12-21T18:53:23.651425"
+    },
+    {
+      "file_path": "api/main.py",
+      "lines_start": 1,
+      "lines_end": 150,
+      "lines_count": 150,
+      "component": "api_lifecycle",
+      "pattern": "context_vars_middleware",
+      "comprehension_level": "mastered",
+      "business_value": 45000.0,
+      "notes": "Deep dive into FastAPI Lifecycle...",
+      "questions": [
+        "User A vs User B logs?",
+        "CORS?"
+      ],
+      "insights": [
+        "Middleware is an onion.",
+        "ContextVars are magic pockets."
+      ],
+      "failure_modes": [
+        "Blocking Event Loop",
+        "CORS misconfig"
+      ],
+      "optimizations": [
+        "Use structlog"
+      ],
+      "timestamp": "2025-12-21T18:53:23.652426"
+    },
+    {
+      "file_path": "api/routes/webhook_handler.py",
+      "lines_start": 1,
+      "lines_end": 100,
+      "lines_count": 100,
+      "component": "payment_logic",
+      "pattern": "event_sourcing_lite",
+      "comprehension_level": "mastered",
+      "business_value": 200000.0,
+      "notes": "Implemented Idempotency and Event Sourcing logic...",
+      "questions": [
+        "Crash before email?",
+        "Double events?"
+      ],
+      "insights": [
+        "Idempotency BEFORE logic.",
+        "Outbox Pattern."
+      ],
+      "failure_modes": [
+        "Ghost Emails",
+        "Race Conditions"
+      ],
+      "optimizations": [
+        "Transactional Outbox worker"
+      ],
+      "timestamp": "2025-12-21T18:53:23.653427"
     }
   ],
-  "patterns_learned": [
-    "Idempotency",
-    "Atomic Locks",
-    "Time To Live"
-  ],
-  "start_date": "2025-12-18T00:00:00",
-  "achievements": [
-    "\ud83c\udfaf First Hundred!",
-    "\ud83d\udd25 Demon Slayer!"
-  ]
+  "patterns_learned": [],
+  "achievements": [],
+  "start_date": "2025-12-18T00:00:00"
 }
